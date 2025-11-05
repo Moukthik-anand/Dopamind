@@ -18,6 +18,7 @@ export default function RippleTouchPage() {
   const animationFrameRef = useRef<number>();
   const ripplesRef = useRef<Ripple[]>([]);
   const [showHint, setShowHint] = useState(true);
+  const [isDrawing, setIsDrawing] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -31,10 +32,14 @@ export default function RippleTouchPage() {
       x,
       y,
       radius: 0,
-      maxRadius: 100 + Math.random() * 80,
+      maxRadius: 60 + Math.random() * 60, // Smaller radius for flow effect
       alpha: 1.0,
       speed: 0.02 + Math.random() * 0.01,
     });
+    // Limit total ripples to prevent lag
+    if (ripplesRef.current.length > 30) {
+      ripplesRef.current.shift();
+    }
   }, []);
 
   const gameLoop = useCallback(() => {
@@ -43,7 +48,7 @@ export default function RippleTouchPage() {
     if (!ctx || !canvas) return;
     
     // Clear canvas with a semi-transparent fill for a slight trail effect
-    ctx.fillStyle = 'rgba(167, 139, 250, 0.1)';
+    ctx.fillStyle = 'rgba(167, 139, 250, 0.15)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
     ctx.globalCompositeOperation = "lighter";
@@ -63,7 +68,7 @@ export default function RippleTouchPage() {
       // Draw ripple
       ctx.beginPath();
       ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha * 0.5})`;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha * 0.4})`;
       ctx.lineWidth = 2;
       ctx.stroke();
     }
@@ -97,32 +102,55 @@ export default function RippleTouchPage() {
     };
   }, [gameLoop]);
 
-  const handleInteraction = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
+  const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     const events = 'touches' in e.nativeEvent ? e.nativeEvent.touches : [e.nativeEvent];
-    
+    const coords = [];
     for (let i = 0; i < events.length; i++) {
         const event = events[i];
-        const x = event.clientX - rect.left;
-        const y = event.clientY - rect.top;
-        createRipple(x, y);
+        coords.push({
+            x: event.clientX - rect.left,
+            y: event.clientY - rect.top,
+        });
     }
+    return coords;
+  }
+
+  const handleStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    setIsDrawing(true);
+    const coords = getCoordinates(e);
+    coords.forEach(coord => createRipple(coord.x, coord.y));
   };
+  
+  const handleMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    e.preventDefault(); // Prevent scrolling on touch devices
+    const coords = getCoordinates(e);
+    coords.forEach(coord => createRipple(coord.x, coord.y));
+  };
+
+  const handleEnd = () => {
+    setIsDrawing(false);
+  };
+
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <h1 className="text-4xl font-bold font-headline">Ripple Touch 🌊</h1>
+      <h1 className="text-4xl font-bold font-headline">Ripple Flow 🌊</h1>
       <Card className="w-full max-w-2xl text-center overflow-hidden shadow-lg border border-black/5 dark:border-white/5">
         <CardContent className="p-0">
           <div className="relative w-full h-[60vh] max-h-[700px] overflow-hidden">
             <canvas
               ref={canvasRef}
               className="w-full h-full cursor-pointer bg-gradient-to-br from-purple-400 via-blue-400 to-indigo-400"
-              onMouseDown={handleInteraction}
-              onTouchStart={handleInteraction}
+              onMouseDown={handleStart}
+              onTouchStart={handleStart}
+              onMouseMove={handleMove}
+              onTouchMove={handleMove}
+              onMouseUp={handleEnd}
+              onMouseLeave={handleEnd}
+              onTouchEnd={handleEnd}
             />
             <AnimatePresence>
                 {showHint && (
@@ -132,7 +160,7 @@ export default function RippleTouchPage() {
                         exit={{ opacity: 0 }}
                         className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm pointer-events-none"
                     >
-                        Tap anywhere...
+                        Tap and slide...
                     </motion.div>
                 )}
             </AnimatePresence>

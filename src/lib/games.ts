@@ -40,9 +40,9 @@ export const games: Game[] = [
     path: '/games/pixel-paint',
   },
   {
-    id: 'ripple-touch',
-    title: 'Ripple Touch',
-    description: 'Tap to create soothing ripples.',
+    id: 'ripple-flow',
+    title: 'Ripple Flow',
+    description: 'Slide to create smooth ripples.',
     icon: Waves,
     path: '/games/ripple-touch',
   },
