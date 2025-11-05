@@ -5,17 +5,30 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
-import {
-  GoogleAuthProvider,
-  signInWithPopup,
+
+// --- Firebase SDK Imports ---
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
+import { 
+  getAuth, 
+  onAuthStateChanged,
+  GoogleAuthProvider, 
+  signInWithPopup, 
   signOut,
+  type Auth,
+  type User
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, increment } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  doc, 
+  getDoc, 
+  setDoc, 
+  increment,
+  type Firestore
+} from 'firebase/firestore';
 
 // --- Constants ---
 const GAME_DURATION = 45; // seconds
-
 type GameState = 'ready' | 'playing' | 'over';
 
 interface Bubble {
@@ -50,25 +63,38 @@ export default function BubblePopperPage() {
 
   const bubblesRef = useRef<Bubble[]>([]);
   const particlesRef = useRef<Particle[]>([]);
-
-  // --- Firebase Hooks ---
-  const auth = useAuth();
-  const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
+  
+  // --- Firebase State ---
+  const [auth, setAuth] = useState<Auth | null>(null);
+  const [firestore, setFirestore] = useState<Firestore | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isUserLoading, setIsUserLoading] = useState(true);
   const [userXP, setUserXP] = useState<number | null>(null);
 
-  const userProfileRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, `users/${user.uid}/userProfiles/${user.uid}`);
-  }, [firestore, user]);
-
+  // --- Initialize Firebase ---
   useEffect(() => {
-    if (user && userProfileRef) {
+    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    const authInstance = getAuth(app);
+    const firestoreInstance = getFirestore(app);
+    setAuth(authInstance);
+    setFirestore(firestoreInstance);
+
+    const unsubscribe = onAuthStateChanged(authInstance, (user) => {
+      setUser(user);
+      setIsUserLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // --- Firestore Logic ---
+  useEffect(() => {
+    if (user && firestore) {
+      const userProfileRef = doc(firestore, `users/${user.uid}/userProfiles/${user.uid}`);
       getDoc(userProfileRef).then(docSnap => {
         if (docSnap.exists()) {
           setUserXP(docSnap.data().xp);
         } else {
-          // Create profile if it doesn't exist
           setDoc(userProfileRef, {
             id: user.uid,
             userId: user.uid,
@@ -83,7 +109,7 @@ export default function BubblePopperPage() {
     } else {
       setUserXP(null);
     }
-  }, [user, userProfileRef]);
+  }, [user, firestore]);
 
 
   // --- Sound Initialization & Effects ---
@@ -221,7 +247,6 @@ export default function BubblePopperPage() {
     bubblesRef.current = [];
     particlesRef.current = [];
     
-    // Restart animation loop
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, [gameLoop]);
 
@@ -250,7 +275,7 @@ export default function BubblePopperPage() {
   // --- Input Handling ---
   const handlePop = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-      if (gameState !== 'playing') return;
+      if (gameState !== 'playing' || !firestore) return;
 
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -270,17 +295,18 @@ export default function BubblePopperPage() {
           playPopSound();
           setScore(prev => prev + 1);
 
-          if (user && userProfileRef) {
+          if (user) {
+            const userProfileRef = doc(firestore, `users/${user.uid}/userProfiles/${user.uid}`);
             setDoc(userProfileRef, { xp: increment(1) }, { merge: true });
             setUserXP(prev => (prev ?? 0) + 1);
           }
 
           if (navigator.vibrate) navigator.vibrate(50);
-          break; // Only pop one bubble per click
+          break;
         }
       }
     },
-    [gameState, playPopSound, createParticles, user, userProfileRef]
+    [gameState, playPopSound, createParticles, user, firestore]
   );
   
     // --- Auth Functions ---
