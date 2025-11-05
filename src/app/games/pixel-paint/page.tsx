@@ -2,23 +2,27 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Brush, Sparkles, Trash2, Loader2, AlertTriangle } from 'lucide-react';
-import { transformDoodleToPixelArt } from '@/ai/flows/transform-doodles-to-pixel-art';
-import Image from 'next/image';
-import { useToast } from '@/hooks/use-toast';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Brush, Trash2 } from 'lucide-react';
 
 const CANVAS_SIZE = 300;
-const TRANSFORM_COOLDOWN = 10000; // 10 seconds
+const LOCAL_STORAGE_KEY = 'pixel-paint-doodle';
 
 export default function PixelPaintPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [isTransforming, setIsTransforming] = useState(false);
-  const [pixelArt, setPixelArt] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [lastTransformTime, setLastTransformTime] = useState(0);
-  const { toast } = useToast();
 
   const getCanvasContext = () => {
     const canvas = canvasRef.current;
@@ -29,7 +33,7 @@ export default function PixelPaintPage() {
   const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
     const ctx = getCanvasContext();
     if (!ctx) return;
-    
+
     const { offsetX, offsetY } = getCoordinates(event);
     ctx.beginPath();
     ctx.moveTo(offsetX, offsetY);
@@ -51,6 +55,7 @@ export default function PixelPaintPage() {
     if (!ctx) return;
     ctx.closePath();
     setIsDrawing(false);
+    saveCanvas();
   };
 
   const getCoordinates = (event: React.MouseEvent | React.TouchEvent) => {
@@ -68,60 +73,39 @@ export default function PixelPaintPage() {
     };
   };
 
+  const saveCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    localStorage.setItem(LOCAL_STORAGE_KEY, dataUrl);
+  };
+
+  const loadCanvas = () => {
+    const ctx = getCanvasContext();
+    const savedDrawing = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (ctx && savedDrawing) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0);
+      };
+      img.src = savedDrawing;
+    }
+  };
+
   useEffect(() => {
     const ctx = getCanvasContext();
     if (!ctx) return;
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
+    loadCanvas();
   }, []);
 
   const clearCanvas = () => {
     const ctx = getCanvasContext();
     if (!ctx) return;
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    setPixelArt(null);
-    setError(null);
-  };
-
-  const handleTransform = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const now = Date.now();
-    if (now - lastTransformTime < TRANSFORM_COOLDOWN) {
-      toast({
-        title: "The AI artist is taking a short break.",
-        description: `Try again in a few seconds.`,
-      });
-      return;
-    }
-
-    setIsTransforming(true);
-    setPixelArt(null);
-    setError(null);
-    setLastTransformTime(now);
-
-    try {
-      const doodleDataUri = canvas.toDataURL('image/png');
-      const result = await transformDoodleToPixelArt({ doodleDataUri });
-      setPixelArt(result.pixelArtDataUri);
-    } catch (error) {
-      console.error('Failed to transform doodle:', error);
-      const errorMessage = (error as Error)?.message || "Could not generate pixel art.";
-      if (errorMessage.includes("429")) {
-        setError("The AI artist is very popular! Quota exceeded. Please try again later.");
-      } else {
-        setError('Could not generate pixel art. The AI model may be overloaded. Please try again later.');
-      }
-      toast({
-        variant: "destructive",
-        title: "Transformation Failed",
-        description: "Could not generate pixel art. Please try again later.",
-      });
-    } finally {
-      setIsTransforming(false);
-    }
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
   };
 
   return (
@@ -129,8 +113,10 @@ export default function PixelPaintPage() {
       <h1 className="text-4xl font-bold font-headline">Pixel Paint</h1>
       <Card className="w-full max-w-md text-center">
         <CardHeader>
-          <CardTitle>AI Pixel Art</CardTitle>
-          <CardDescription>Draw a doodle and let AI turn it into pixel art.</CardDescription>
+          <CardTitle>Free Draw</CardTitle>
+          <CardDescription>
+            A quiet space to doodle and clear your mind.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">
           <div className="relative border-2 border-dashed rounded-lg">
@@ -147,26 +133,24 @@ export default function PixelPaintPage() {
               onTouchMove={draw}
               onTouchEnd={stopDrawing}
             />
-            {(isTransforming || pixelArt || error) && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-lg p-4">
-                {isTransforming && <Loader2 className="w-12 h-12 text-primary animate-spin" />}
-                {pixelArt && !isTransforming && <Image src={pixelArt} alt="AI Generated Pixel Art" width={CANVAS_SIZE} height={CANVAS_SIZE} className="rounded-lg" />}
-                {error && !isTransforming && (
-                   <div className="text-center text-destructive">
-                     <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
-                     <p className="font-semibold">Transformation Failed</p>
-                     <p className="text-sm">{error}</p>
-                   </div>
-                )}
-              </div>
-            )}
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleTransform} disabled={isTransforming}>
-              <Sparkles className="mr-2" />
-              {isTransforming ? 'Transforming...' : 'Transform'}
-            </Button>
-            <Button onClick={clearCanvas} variant="outline">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" className="cursor-default">
+                    <Brush className="mr-2" />
+                    Create your calm
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Your drawing is saved automatically!</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <Button onClick={clearCanvas} variant="destructive"
+            aria-label="Clear canvas">
               <Trash2 className="mr-2" />
               Clear
             </Button>
