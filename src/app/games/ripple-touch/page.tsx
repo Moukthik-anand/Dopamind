@@ -42,7 +42,7 @@ export default function RippleTouchPage() {
       maxRadius: 60 + Math.random() * 40,
     });
     // Limit total ripples for performance
-    if (ripplesRef.current.length > 15) {
+    if (ripplesRef.current.length > 20) {
       ripplesRef.current.shift();
     }
   }, []);
@@ -55,20 +55,20 @@ export default function RippleTouchPage() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     ctx.globalCompositeOperation = "lighter";
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
 
     for (let i = ripplesRef.current.length - 1; i >= 0; i--) {
       const r = ripplesRef.current[i];
       
-      r.radius += 0.7; // Slower expansion
-      r.alpha -= 0.015; // Gradual fade
+      r.radius += 1.2;
+      r.alpha -= 0.015;
       
       if (r.alpha <= 0 || r.radius > r.maxRadius) {
         ripplesRef.current.splice(i, 1);
         continue;
       }
       
-      ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha * 0.3})`;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha * 0.25})`;
       ctx.beginPath();
       ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
       ctx.stroke();
@@ -144,7 +144,7 @@ export default function RippleTouchPage() {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <h1 className="text-4xl font-bold font-headline">Ripple Flow 🌊</h1>
+      <h1 className="text-4xl font-bold font-headline">Ripple Flow</h1>
       <Card className="w-full max-w-2xl text-center overflow-hidden shadow-lg border border-black/5 dark:border-white/5">
         <CardContent className="p-0">
           <div className="relative w-full h-[60vh] max-h-[700px] overflow-hidden">
