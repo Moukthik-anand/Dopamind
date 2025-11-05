@@ -35,13 +35,13 @@ export function DailyChallenge() {
   }, [challenge]);
 
   return (
-    <Card className="shadow-lg border border-black/5 dark:border-white/5">
+    <Card className="glass-card shadow-lg rounded-2xl">
       <CardHeader>
         <div className="flex items-center gap-3">
             <Award className="w-8 h-8 text-primary" />
             <div>
-                <CardTitle className="font-headline text-xl">Your Daily Challenge</CardTitle>
-                <CardDescription>A special task, just for you.</CardDescription>
+                <CardTitle className="font-headline text-xl text-[#111111] dark:text-white">Your Daily Challenge</CardTitle>
+                <CardDescription className="text-[#444444] dark:text-gray-300">A special task, just for you.</CardDescription>
             </div>
         </div>
       </CardHeader>
