@@ -10,7 +10,7 @@ interface Ripple {
   y: number;
   radius: number;
   alpha: number;
-  phase: number; // For sinusoidal wave
+  maxRadius: number;
 }
 
 let rippleIdCounter = 0;
@@ -20,7 +20,6 @@ export default function RippleTouchPage() {
   const animationFrameRef = useRef<number>();
   const ripplesRef = useRef<Ripple[]>([]);
   const lastRippleTimeRef = useRef(0);
-  const frameRef = useRef(0);
 
   const [showHint, setShowHint] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -39,10 +38,10 @@ export default function RippleTouchPage() {
       y,
       radius: 0,
       alpha: 1.0,
-      phase: Math.random() * Math.PI * 2,
+      maxRadius: 80 + Math.random() * 40, // 80-120px
     });
-    // Limit total ripples
-    if (ripplesRef.current.length > 20) {
+    // Limit total ripples for performance
+    if (ripplesRef.current.length > 12) {
       ripplesRef.current.shift();
     }
   }, []);
@@ -52,55 +51,43 @@ export default function RippleTouchPage() {
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas) return;
 
-    frameRef.current++;
-
-    // Clear canvas with a semi-transparent fill for a trailing effect
-    ctx.fillStyle = 'rgba(167, 139, 250, 0.08)';
+    // Apply a faint translucent overlay for a fading trail effect
+    ctx.fillStyle = "rgba(167, 139, 250, 0.05)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.globalCompositeOperation = "lighter";
     
-    // Set glow effect for ripples
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = "#bfefff";
-    ctx.strokeStyle = `rgba(255, 255, 255, 0.25)`;
-    ctx.lineWidth = 2;
+    // Set glow effect
+    ctx.shadowBlur = 25;
+    ctx.shadowColor = "rgba(255, 255, 255, 0.5)";
 
     for (let i = ripplesRef.current.length - 1; i >= 0; i--) {
       const r = ripplesRef.current[i];
       
       // Animate ripple
-      r.radius += 1; // Slower, consistent expansion
-      r.alpha -= 0.015; // Slower fade
+      r.radius += 1; // Slow expansion
+      r.alpha -= 0.01; // Gradual fade
       
-      if (r.alpha <= 0) {
+      if (r.alpha <= 0 || r.radius > r.maxRadius) {
         ripplesRef.current.splice(i, 1);
         continue;
       }
       
-      // Draw ripple with sinusoidal distortion
+      // Create a soft radial gradient for each ripple
+      const gradient = ctx.createRadialGradient(r.x, r.y, 0, r.x, r.y, r.radius);
+      gradient.addColorStop(0, `rgba(255, 255, 255, ${r.alpha * 0.4})`);
+      gradient.addColorStop(0.6, `rgba(255, 255, 255, ${r.alpha * 0.15})`);
+      gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+      
+      ctx.fillStyle = gradient;
       ctx.beginPath();
-      const points = 60;
-      for (let j = 0; j <= points; j++) {
-          const angle = (j / points) * Math.PI * 2;
-          const waveRadius = r.radius + Math.sin(angle * 8 + r.phase + frameRef.current * 0.05) * 2;
-          const x = r.x + Math.cos(angle) * waveRadius;
-          const y = r.y + Math.sin(angle) * waveRadius;
-          if (j === 0) {
-              ctx.moveTo(x, y);
-          } else {
-              ctx.lineTo(x, y);
-          }
-      }
-      ctx.closePath();
-      ctx.globalAlpha = r.alpha;
-      ctx.stroke();
+      ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+      ctx.fill();
     }
     
     // Reset canvas settings
     ctx.globalCompositeOperation = "source-over";
     ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1.0;
 
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, []);
@@ -192,7 +179,7 @@ export default function RippleTouchPage() {
                         exit={{ opacity: 0 }}
                         className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm pointer-events-none"
                     >
-                        Tap and slide...
+                        Glide your finger to create flowing water waves.
                     </motion.div>
                 )}
             </AnimatePresence>

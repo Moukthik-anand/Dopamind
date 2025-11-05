@@ -41,8 +41,8 @@ export const games: Game[] = [
   },
   {
     id: 'ripple-flow',
-    title: 'Ripple Flow',
-    description: 'Slide to create flowing water waves.',
+    title: 'Ripple Flow 🌊',
+    description: 'Glide to create soothing ripples.',
     icon: Waves,
     path: '/games/ripple-touch',
   },
