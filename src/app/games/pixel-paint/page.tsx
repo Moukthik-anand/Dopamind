@@ -3,9 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Brush, Sparkles, Trash2, Loader2 } from 'lucide-react';
+import { Brush, Sparkles, Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import { transformDoodleToPixelArt } from '@/ai/flows/transform-doodles-to-pixel-art';
 import Image from 'next/image';
+import { useToast } from '@/hooks/use-toast';
 
 const CANVAS_SIZE = 300;
 
@@ -14,6 +15,8 @@ export default function PixelPaintPage() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [isTransforming, setIsTransforming] = useState(false);
   const [pixelArt, setPixelArt] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const getCanvasContext = () => {
     const canvas = canvasRef.current;
@@ -76,6 +79,7 @@ export default function PixelPaintPage() {
     if (!ctx) return;
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
     setPixelArt(null);
+    setError(null);
   };
 
   const handleTransform = async () => {
@@ -84,12 +88,19 @@ export default function PixelPaintPage() {
 
     setIsTransforming(true);
     setPixelArt(null);
+    setError(null);
     try {
       const doodleDataUri = canvas.toDataURL('image/png');
       const result = await transformDoodleToPixelArt({ doodleDataUri });
       setPixelArt(result.pixelArtDataUri);
     } catch (error) {
       console.error('Failed to transform doodle:', error);
+      setError('Could not generate pixel art. The AI model may be overloaded. Please try again later.');
+      toast({
+        variant: "destructive",
+        title: "Transformation Failed",
+        description: "Could not generate pixel art. Please try again later.",
+      });
     } finally {
       setIsTransforming(false);
     }
@@ -118,10 +129,17 @@ export default function PixelPaintPage() {
               onTouchMove={draw}
               onTouchEnd={stopDrawing}
             />
-            {(isTransforming || pixelArt) && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-lg">
+            {(isTransforming || pixelArt || error) && (
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center rounded-lg p-4">
                 {isTransforming && <Loader2 className="w-12 h-12 text-primary animate-spin" />}
-                {pixelArt && <Image src={pixelArt} alt="AI Generated Pixel Art" width={CANVAS_SIZE} height={CANVAS_SIZE} className="rounded-lg" />}
+                {pixelArt && !isTransforming && <Image src={pixelArt} alt="AI Generated Pixel Art" width={CANVAS_SIZE} height={CANVAS_SIZE} className="rounded-lg" />}
+                {error && !isTransforming && (
+                   <div className="text-center text-destructive">
+                     <AlertTriangle className="w-12 h-12 mx-auto mb-2" />
+                     <p className="font-semibold">Transformation Failed</p>
+                     <p className="text-sm">{error}</p>
+                   </div>
+                )}
               </div>
             )}
           </div>
