@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { BrainCircuit, Star, Flame, Dices } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,17 @@ import { games } from "@/lib/games";
 
 
 export function Header() {
-  const isLoading = false;
+  const [randomGamePath, setRandomGamePath] = useState('');
+
+  useEffect(() => {
+    // This code runs only on the client, after hydration
+    const getRandomGamePath = () => {
+      const randomIndex = Math.floor(Math.random() * games.length);
+      return games[randomIndex].path;
+    };
+    setRandomGamePath(getRandomGamePath());
+  }, []); // Empty dependency array ensures this runs only once on mount
+
   const user = {
     displayName: 'Demo User',
     photoURL: 'https://picsum.photos/seed/dopamind/40/40',
@@ -26,12 +37,6 @@ export function Header() {
     xp: 1250,
     streak: 5,
   }
-
-  const getRandomGamePath = () => {
-    const randomIndex = Math.floor(Math.random() * games.length);
-    return games[randomIndex].path;
-  }
-
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -44,7 +49,7 @@ export function Header() {
         </Link>
         <nav className="flex items-center gap-4 text-sm font-medium">
             <Button variant="ghost" asChild>
-                <Link href={getRandomGamePath()}>
+                <Link href={randomGamePath || "/"}>
                     <Dices className="mr-2" />
                     Play Random
                 </Link>
