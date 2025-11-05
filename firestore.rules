@@ -1,0 +1,135 @@
+/**
+ * @fileoverview Firestore Security Rules for the Microgame Hub application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for personal data (profiles, history, challenges)
+ * and provides public read access to global microgame data. The rules are designed to prevent unauthorized
+ * data access and modification while allowing for flexible data shapes during the prototyping phase.
+ *
+ * Data Structure:
+ * - /users/{userId}/userProfiles/{userProfileId}: User profile data, owned by the user.
+ * - /users/{userId}/playHistory/{playHistoryId}: User's game play history, owned by the user.
+ * - /users/{userId}/dailyChallenges/{dailyChallengeId}: User's daily challenges, owned by the user.
+ * - /microgames/{microgameId}: Publicly accessible microgame data.
+ *
+ * Key Security Decisions:
+ * - User data is strictly segregated under the /users/{userId} path, enforcing path-based ownership.
+ * - Microgame data is publicly readable, but write access is not permitted in this prototype.
+ * - List operations are generally allowed for user-owned data, enabling clients to list their own resources.
+ * - The ruleset avoids `get()` calls for authorization, relying on path-based checks for efficiency.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Rule for UserProfile documents.
+     * @path /users/{userId}/userProfiles/{userProfileId}
+     * @allow (create) - User with UID 'user123' can create their own profile at /users/user123/userProfiles/user123.
+     * @allow (get) - User with UID 'user456' can read their own profile at /users/user456/userProfiles/user456.
+     * @allow (update) - User with UID 'user789' can update their own profile at /users/user789/userProfiles/user789.
+     * @allow (delete) - User with UID 'user101' can delete their own profile at /users/user101/userProfiles/user101.
+     * @deny (create) - User with UID 'user123' cannot create a profile for another user at /users/otherUser/userProfiles/user123.
+     * @deny (get) - User with UID 'user456' cannot read another user's profile at /users/otherUser/userProfiles/user456.
+     * @deny (update) - User with UID 'user789' cannot update another user's profile at /users/otherUser/userProfiles/user789.
+     * @deny (delete) - User with UID 'user101' cannot delete another user's profile at /users/otherUser/userProfiles/user101.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId}/userProfiles/{userProfileId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn() && isSelfProfileCreation(userId, request.resource.data.userId, userProfileId, request.resource.data.id);
+      allow update: if isExistingOwner(userId) && isProfileIdImmutable(userProfileId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rule for PlayHistory documents.
+     * @path /users/{userId}/playHistory/{playHistoryId}
+     * @allow (create) - User with UID 'user123' can create play history at /users/user123/playHistory/game1.
+     * @allow (get) - User with UID 'user456' can read their play history at /users/user456/playHistory/game2.
+     * @allow (update) - User with UID 'user789' can update their play history at /users/user789/playHistory/game3.
+     * @allow (delete) - User with UID 'user101' can delete their play history at /users/user101/playHistory/game4.
+     * @deny (create) - User with UID 'user123' cannot create play history for another user at /users/otherUser/playHistory/game1.
+     * @deny (get) - User with UID 'user456' cannot read another user's play history at /users/otherUser/playHistory/game2.
+     * @deny (update) - User with UID 'user789' cannot update another user's play history at /users/otherUser/playHistory/game3.
+     * @deny (delete) - User with UID 'user101' cannot delete another user's play history at /users/otherUser/playHistory/game4.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId}/playHistory/{playHistoryId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn() && request.resource.data.userProfileId == userId;
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rule for DailyChallenge documents.
+     * @path /users/{userId}/dailyChallenges/{dailyChallengeId}
+     * @allow (create) - User with UID 'user123' can create a daily challenge at /users/user123/dailyChallenges/challenge1.
+     * @allow (get) - User with UID 'user456' can read their daily challenge at /users/user456/dailyChallenges/challenge2.
+     * @allow (update) - User with UID 'user789' can update their daily challenge at /users/user789/dailyChallenges/challenge3.
+     * @allow (delete) - User with UID 'user101' can delete their daily challenge at /users/user101/dailyChallenges/challenge4.
+     * @deny (create) - User with UID 'user123' cannot create a daily challenge for another user at /users/otherUser/dailyChallenges/challenge1.
+     * @deny (get) - User with UID 'user456' cannot read another user's daily challenge at /users/otherUser/dailyChallenges/challenge2.
+     * @deny (update) - User with UID 'user789' cannot update another user's daily challenge at /users/otherUser/dailyChallenges/challenge3.
+     * @deny (delete) - User with UID 'user101' cannot delete another user's daily challenge at /users/otherUser/dailyChallenges/challenge4.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId}/dailyChallenges/{dailyChallengeId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isSignedIn() && request.resource.data.userProfileId == userId;
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rule for Microgame documents.
+     * @path /microgames/{microgameId}
+     * @allow (get) - Any user can read microgame data.
+     * @allow (list) - Any user can list microgame data.
+     * @deny (create) - No user can create microgame data (requires admin).
+     * @deny (update) - No user can update microgame data (requires admin).
+     * @deny (delete) - No user can delete microgame data (requires admin).
+     * @principle Allows public read access to microgame data, restricts write access.
+     */
+    match /microgames/{microgameId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
+  function isExistingOwner(userId) {
+    return isOwner(userId) && resource != null;
+  }
+
+    /**
+   * @description Checks if the user is creating their own profile, and that the userId matches the userProfileId/id field in the document.
+   * @param {string} userId - The user ID from the path.
+   * @param {string} userProfileIdInDoc - The userId from the document, to validate.
+   * @param {string} userProfileIdPathParam - The userProfileId from the path.
+   * @param {string} profileIdInDoc - The id in the doc to validate.
+   * @return {bool} - True if the user is creating their own profile, false otherwise.
+   */
+  function isSelfProfileCreation(userId, userProfileIdInDoc, userProfileIdPathParam, profileIdInDoc) {
+    return isSignedIn() && request.auth.uid == userId && userProfileIdInDoc == userId && profileIdInDoc == userProfileIdPathParam;
+  }
+
+  function isProfileIdImmutable(userProfileId) {
+    return resource.data.id == userProfileId;
+  }
+}

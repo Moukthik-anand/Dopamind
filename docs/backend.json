@@ -1,0 +1,232 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user's profile, storing their XP, streaks, and preferences.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "User ID from the authentication system (e.g., Firebase)."
+        },
+        "xp": {
+          "type": "number",
+          "description": "User's experience points."
+        },
+        "streak": {
+          "type": "number",
+          "description": "User's current daily streak."
+        },
+        "favoriteGameIds": {
+          "type": "array",
+          "description": "References to favorite games. (Relationship: UserProfile 1:N Microgame)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "themePreference": {
+          "type": "string",
+          "description": "User's preferred theme (e.g., 'light', 'dark')."
+        }
+      },
+      "required": [
+        "id",
+        "userId"
+      ]
+    },
+    "Microgame": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Microgame",
+      "type": "object",
+      "description": "Represents a microgame available in the hub.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Microgame entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the microgame."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the microgame."
+        },
+        "url": {
+          "type": "string",
+          "description": "URL where the microgame can be accessed.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "url"
+      ]
+    },
+    "PlayHistory": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PlayHistory",
+      "type": "object",
+      "description": "Represents a user's play history for a specific microgame.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PlayHistory entry."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N PlayHistory)"
+        },
+        "microgameId": {
+          "type": "string",
+          "description": "Reference to Microgame. (Relationship: Microgame 1:N PlayHistory)"
+        },
+        "playTimestamp": {
+          "type": "string",
+          "description": "Timestamp of when the game was played.",
+          "format": "date-time"
+        },
+        "score": {
+          "type": "number",
+          "description": "The score the user achieved during the game play."
+        }
+      },
+      "required": [
+        "id",
+        "userProfileId",
+        "microgameId",
+        "playTimestamp"
+      ]
+    },
+    "DailyChallenge": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DailyChallenge",
+      "type": "object",
+      "description": "Represents the daily challenge generated for a user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the DailyChallenge."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:1 DailyChallenge)"
+        },
+        "date": {
+          "type": "string",
+          "description": "Date for which the challenge is valid (YYYY-MM-DD).",
+          "format": "date-time"
+        },
+        "microgameId": {
+          "type": "string",
+          "description": "Reference to Microgame for the daily challenge."
+        },
+        "challengeText": {
+          "type": "string",
+          "description": "Text describing the daily challenge."
+        }
+      },
+      "required": [
+        "id",
+        "userProfileId",
+        "date",
+        "microgameId",
+        "challengeText"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}/userProfiles/{userProfileId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile data. Path-based ownership ensures only the user can access their profile.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user.  Matches the Firebase Auth UID."
+            },
+            {
+              "name": "userProfileId",
+              "description": "The ID of the user profile document. Generally the same as the user ID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/playHistory/{playHistoryId}",
+        "definition": {
+          "entityName": "PlayHistory",
+          "schema": {
+            "$ref": "#/backend/entities/PlayHistory"
+          },
+          "description": "Stores user's play history. Path-based ownership ensures only the user can access their play history.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user.  Matches the Firebase Auth UID."
+            },
+            {
+              "name": "playHistoryId",
+              "description": "The ID of the play history entry."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/dailyChallenges/{dailyChallengeId}",
+        "definition": {
+          "entityName": "DailyChallenge",
+          "schema": {
+            "$ref": "#/backend/entities/DailyChallenge"
+          },
+          "description": "Stores user's daily challenges. Path-based ownership ensures only the user can access their daily challenges.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The ID of the user.  Matches the Firebase Auth UID."
+            },
+            {
+              "name": "dailyChallengeId",
+              "description": "The ID of the daily challenge document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/microgames/{microgameId}",
+        "definition": {
+          "entityName": "Microgame",
+          "schema": {
+            "$ref": "#/backend/entities/Microgame"
+          },
+          "description": "Stores microgame data.  Globally accessible data.",
+          "params": [
+            {
+              "name": "microgameId",
+              "description": "The ID of the microgame document."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to optimize security, scalability, and debuggability, adhering to the core design principles and strategy mandates. \n\n1. **Authorization Independence:** This is achieved by avoiding `get()` calls in security rules. User profiles, play history, and daily challenges are organized under the `/users/{userId}` path, enabling path-based authorization. No `get()` calls are required to validate ownership. For microgames which are global (not user specific), there is a microgames collection.\n\n2. **Clarity of Intent:** The structure uses explicit path-based ownership (`/users/{userId}/...`) to clearly define access control.  The schema uses standard naming conventions.\n\n3. **DBAC (No Custom Claims):**  Authorization relies solely on `request.auth.uid` and path-based rules. No custom claims are used.\n\n4. **QAPs (Rules are not Filters):** The structure supports secure `list` operations. Access to user profiles, play history, and daily challenges are restricted via path-based security. Listing microgames is open to all users.\n\n5. **Invariants:** The structure supports the integrity of ownership through path-based ownership and timestamps are also included. \n\nThe structure effectively segregates user-specific data (profiles, play history, challenges) under their respective user IDs and keeps global microgame data separate, simplifying security rules and aligning with the principle of homogeneous security posture."
+  }
+}
