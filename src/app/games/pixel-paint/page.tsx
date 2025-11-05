@@ -90,9 +90,7 @@ export default function PixelPaintPage() {
   useEffect(() => {
     const ctx = getCanvasContext();
     if (!ctx) return;
-    // Use the primary color for the brush for better theme consistency
-    const themeColor = getComputedStyle(document.documentElement).getPropertyValue('--primary');
-    ctx.strokeStyle = `hsl(${themeColor.trim()})`;
+    ctx.strokeStyle = '#000000'; // Solid black
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
     loadCanvas();

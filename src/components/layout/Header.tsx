@@ -126,13 +126,13 @@ export function Header() {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56 p-2 rounded-xl glass-card" align="end" forceMount>
+                <DropdownMenuContent className="w-56 p-2 rounded-xl bg-white dark:bg-[#1e1e1e] border border-border shadow-lg" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal px-2 py-1.5">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-bold leading-none text-foreground">
+                      <p className="text-sm font-bold leading-none text-[#111] dark:text-white">
                         {user.displayName}
                       </p>
-                      <p className="text-xs leading-none text-muted-foreground">
+                      <p className="text-xs leading-none text-[#555] dark:text-gray-400">
                         {user.email}
                       </p>
                     </div>
@@ -140,7 +140,7 @@ export function Header() {
                   <DropdownMenuSeparator className="my-2" />
                   <DropdownMenuItem
                     onClick={handleSignOut}
-                    className="w-full justify-center rounded-md bg-black/5 dark:bg-white/10 font-medium text-foreground/80 hover:bg-black/10 dark:hover:bg-white/20 focus:bg-black/10 dark:focus:bg-white/20 p-2 cursor-pointer"
+                    className="w-full justify-center rounded-md bg-gray-100 dark:bg-gray-800 font-medium text-[#222] dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 focus:bg-gray-200 dark:focus:bg-gray-700 p-2 cursor-pointer"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>

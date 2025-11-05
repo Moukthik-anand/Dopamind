@@ -18,7 +18,7 @@ export function GameCard({ game }: GameCardProps) {
       whileHover={{ scale: 1.03, rotate: game.comingSoon ? 0 : -2 }}
       transition={{ type: 'spring', stiffness: 300, damping: 15 }}
     >
-      <Card className={cn("flex flex-col transition-all glass-card", game.comingSoon && "opacity-60")}>
+      <Card className={cn("flex flex-col transition-all shadow-lg border border-black/5 dark:border-white/5", game.comingSoon && "opacity-60")}>
         <CardHeader>
           <div className="flex items-center gap-4">
             <div className="bg-primary/10 p-3 rounded-lg">

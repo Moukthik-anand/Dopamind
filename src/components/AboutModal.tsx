@@ -16,7 +16,7 @@ interface AboutModalProps {
 export function AboutModal({ open, onOpenChange }: AboutModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card sm:max-w-md">
+      <DialogContent className="shadow-lg sm:max-w-md">
         <DialogHeader>
           <DialogTitle>About Dopamind</DialogTitle>
         </DialogHeader>

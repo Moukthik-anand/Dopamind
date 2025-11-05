@@ -321,7 +321,7 @@ export default function BubblePopperPage() {
   return (
     <div className="flex flex-col items-center gap-4">
       <h1 className="text-4xl font-bold font-headline">Bubble Popper</h1>
-      <Card className="w-full max-w-2xl text-center overflow-hidden glass-card">
+      <Card className="w-full max-w-2xl text-center overflow-hidden shadow-lg border border-black/5 dark:border-white/5">
         <CardContent className="p-0">
           <div className="relative w-full h-[60vh] max-h-[700px] overflow-hidden">
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 w-full px-4">

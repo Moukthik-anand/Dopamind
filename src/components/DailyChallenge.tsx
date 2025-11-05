@@ -35,7 +35,7 @@ export function DailyChallenge() {
   }, [challenge]);
 
   return (
-    <Card className="glass-card shadow-lg">
+    <Card className="shadow-lg border border-black/5 dark:border-white/5">
       <CardHeader>
         <div className="flex items-center gap-3">
             <Award className="w-8 h-8 text-primary" />
