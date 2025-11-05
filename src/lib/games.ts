@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { CircleDashed, Paintbrush, Brain, Blocks, Music, MousePointerClick, Puzzle, Gamepad2 } from 'lucide-react';
+import { CircleDashed, Paintbrush, Brain, Blocks, Music, MousePointerClick, Puzzle, Gamepad2, Pilcrow, Combine } from 'lucide-react';
 
 export interface Game {
   id: string;
@@ -77,7 +77,7 @@ export const games: Game[] = [
     id: 'word-flow',
     title: 'Word Flow',
     description: 'Find words in a grid of letters.',
-    icon: Gamepad2,
+    icon: Pilcrow,
     path: '#',
     comingSoon: true,
   },
@@ -85,7 +85,7 @@ export const games: Game[] = [
     id: 'dot-connect',
     title: 'Dot Connect',
     description: 'Connect the dots without crossing lines.',
-    icon: Gamepad2,
+    icon: Combine,
     path: '#',
     comingSoon: true,
   },
