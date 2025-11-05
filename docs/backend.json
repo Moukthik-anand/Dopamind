@@ -66,76 +66,6 @@
         "name",
         "description"
       ]
-    },
-    "PlayHistory": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PlayHistory",
-      "type": "object",
-      "description": "Stores the user's play history for each microgame.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the play history entry."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N PlayHistory)"
-        },
-        "microgameId": {
-          "type": "string",
-          "description": "Reference to Microgame. (Relationship: Microgame 1:N PlayHistory)"
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "Timestamp of when the game was played.",
-          "format": "date-time"
-        },
-        "score": {
-          "type": "number",
-          "description": "User's score in the microgame."
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "microgameId",
-        "timestamp"
-      ]
-    },
-    "DailyChallenge": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "DailyChallenge",
-      "type": "object",
-      "description": "Stores the AI-generated daily challenge for a user.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the daily challenge."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N DailyChallenge)"
-        },
-        "date": {
-          "type": "string",
-          "description": "Date for which the challenge is generated.",
-          "format": "date"
-        },
-        "gameId": {
-          "type": "string",
-          "description": "Reference to Microgame to be suggested for the day"
-        },
-        "challengeText": {
-          "type": "string",
-          "description": "Textual description of the daily challenge."
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "date",
-        "challengeText"
-      ]
     }
   },
   "auth": {
@@ -176,48 +106,8 @@
             }
           ]
         }
-      },
-      {
-        "path": "/users/{userId}/playHistory/{playHistoryId}",
-        "definition": {
-          "entityName": "PlayHistory",
-          "schema": {
-            "$ref": "#/backend/entities/PlayHistory"
-          },
-          "description": "Stores the play history for each user. Path-based ownership enforced.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user."
-            },
-            {
-              "name": "playHistoryId",
-              "description": "The unique ID of the play history entry."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/dailyChallenges/{dailyChallengeId}",
-        "definition": {
-          "entityName": "DailyChallenge",
-          "schema": {
-            "$ref": "#/backend/entities/DailyChallenge"
-          },
-          "description": "Stores the daily challenges for each user. Path-based ownership enforced.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique ID of the user."
-            },
-            {
-              "name": "dailyChallengeId",
-              "description": "The unique ID of the daily challenge."
-            }
-          ]
-        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to address the 'auth/operation-not-allowed' error, which typically indicates that Firebase Authentication methods are not enabled in the Firebase Console. While the database structure doesn't directly fix this, it ensures a scalable and secure data model that can support various authentication scenarios after enabling the necessary methods (like Google Sign-In). It focuses on Authorization Independence, enabling clear and debuggable security rules. This is achieved by using path-based ownership for user-specific data and avoiding `get()` calls in security rules. Each collection is designed to have a homogeneous security posture, simplifying rules.\n\nUser profiles are stored in `/users/{userId}/userProfile` for path-based ownership. User-specific data like play history and daily challenges are stored as subcollections of the `/users/{userId}` collection. Microgames are stored in the `/microgames` collection. This design facilitates QAPs by enabling secure `list` operations based on the user's `userId` without relying on complex filtering in rules."
+    "reasoning": "The Firestore structure is designed to address the 'auth/operation-not-allowed' error, which typically indicates that Firebase Authentication methods are not enabled in the Firebase Console. While the database structure doesn't directly fix this, it ensures a scalable and secure data model that can support various authentication scenarios after enabling the necessary methods (like Google Sign-In). It focuses on Authorization Independence, enabling clear and debuggable security rules. This is achieved by using path-based ownership for user-specific data and avoiding `get()` calls in security rules. Each collection is designed to have a homogeneous security posture, simplifying rules.\n\nUser profiles are stored in `/users/{userId}/userProfile` for path-based ownership. Microgames are stored in the `/microgames` collection. This design facilitates QAPs by enabling secure `list` operations based on the user's `userId` without relying on complex filtering in rules."
   }
 }

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { games } from '@/lib/games';
 import { GameCard } from '@/components/GameCard';
-import { DailyChallenge } from '@/components/DailyChallenge';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Dices } from 'lucide-react';
@@ -50,10 +49,6 @@ export default function Home() {
                 </Link>
             </Button>
         </div>
-      </section>
-
-      <section className="mb-12 max-w-4xl mx-auto">
-        <DailyChallenge />
       </section>
 
       <section>

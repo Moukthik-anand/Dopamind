@@ -4,8 +4,6 @@
  *
  * Data Structure:
  * - /users/{userId}: Stores user profile information, accessible only by the owning user.
- * - /users/{userId}/playHistory/{playHistoryId}: Stores play history, accessible only by the owning user.
- * - /users/{userId}/dailyChallenges/{dailyChallengeId}: Stores daily challenges, accessible only by the owning user.
  * - /microgames/{microgameId}: Stores microgame information, publicly readable.
  *
  * Key Security Decisions:
@@ -56,52 +54,6 @@ service cloud.firestore {
       allow create: if false;
       allow update: if false;
       allow delete: if false;
-    }
-
-    /**
-     * @description Enforces access control for play history entries. Only the owner can read and write.
-     * @path /users/{userId}/playHistory/{playHistoryId}
-     * @allow (get) User 'user123' can read their own play history.
-     * @allow (list) User 'user123' can list their own play history.
-     * @allow (create) User 'user123' can create their own play history.
-     * @allow (update) User 'user123' can update their own play history.
-     * @allow (delete) User 'user123' can delete their own play history.
-     * @deny (get) User 'user456' cannot read 'user123' play history.
-     * @deny (list) User 'user456' cannot list 'user123' play history.
-     * @deny (create) User 'user456' cannot create a play history entry as 'user123'.
-     * @deny (update) User 'user456' cannot update 'user123' play history.
-     * @deny (delete) User 'user456' cannot delete 'user123' play history.
-     * @principle Enforces document ownership based on the userId path parameter.
-     */
-    match /users/{userId}/playHistory/{playHistoryId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Enforces access control for daily challenges. Only the owner can read and write.
-     * @path /users/{userId}/dailyChallenges/{dailyChallengeId}
-     * @allow (get) User 'user123' can read their own daily challenges.
-     * @allow (list) User 'user123' can list their own daily challenges.
-     * @allow (create) User 'user123' can create their own daily challenges.
-     * @allow (update) User 'user123' can update their own daily challenges.
-     * @allow (delete) User 'user123' can delete their own daily challenges.
-     * @deny (get) User 'user456' cannot read 'user123' daily challenges.
-     * @deny (list) User 'user456' cannot list 'user123' daily challenges.
-     * @deny (create) User 'user456' cannot create a daily challenge as 'user123'.
-     * @deny (update) User 'user456' cannot update 'user123' daily challenges.
-     * @deny (delete) User 'user456' cannot delete 'user123' daily challenges.
-     * @principle Enforces document ownership based on the userId path parameter.
-     */
-    match /users/{userId}/dailyChallenges/{dailyChallengeId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
-      allow delete: if isExistingOwner(userId);
     }
 
     /**
