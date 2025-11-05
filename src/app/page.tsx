@@ -3,9 +3,6 @@
 import { useState, useEffect } from 'react';
 import { games } from '@/lib/games';
 import { GameCard } from '@/components/GameCard';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { Dices } from 'lucide-react';
 import { useUser } from '@/firebase';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -28,27 +25,34 @@ export default function Home() {
     <div className="container py-8 md:py-12">
       <section className="mb-12 text-center">
         <AnimatePresence>
-          {!isUserLoading && user && (
+          {!isUserLoading && user ? (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.5, ease: 'easeInOut' }}
+              className="mb-4"
             >
               <h1 className="text-4xl lg:text-5xl font-bold font-headline mb-2 tracking-tight">
                 Welcome back, {firstName}!
               </h1>
+               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Ready to reset? Pick a game and start playing for a moment of calm.</p>
             </motion.div>
+          ) : (
+             <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.5, ease: 'easeInOut' }}
+                className="mb-4"
+            >
+                 <h1 className="text-4xl lg:text-5xl font-bold font-headline mb-2 tracking-tight">
+                    Dopamind
+                </h1>
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Ready to reset? Pick a game and start playing for a moment of calm.</p>
+             </motion.div>
           )}
         </AnimatePresence>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Ready to reset? Pick a game and start playing for a moment of calm.</p>
-        <div className="mt-6">
-            <Button asChild size="lg">
-                <Link href={randomGamePath || "/"}>
-                    <Dices className="mr-2" /> Play Random Game
-                </Link>
-            </Button>
-        </div>
       </section>
 
       <section>
