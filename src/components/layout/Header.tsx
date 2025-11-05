@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BrainCircuit, Star, Flame } from "lucide-react";
+import { BrainCircuit, Star, Flame, Dices } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -13,6 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { games } from "@/lib/games";
+
 
 export function Header() {
   const isLoading = false;
@@ -25,6 +27,11 @@ export function Header() {
     streak: 5,
   }
 
+  const getRandomGamePath = () => {
+    const randomIndex = Math.floor(Math.random() * games.length);
+    return games[randomIndex].path;
+  }
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -35,6 +42,14 @@ export function Header() {
             Dopamind
           </span>
         </Link>
+        <nav className="flex items-center gap-4 text-sm font-medium">
+            <Button variant="ghost" asChild>
+                <Link href={getRandomGamePath()}>
+                    <Dices className="mr-2" />
+                    Play Random
+                </Link>
+            </Button>
+        </nav>
         <div className="flex flex-1 items-center justify-end space-x-2 md:space-x-4">
               <>
                 <div className="flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium">
