@@ -22,11 +22,18 @@ export function Footer() {
       <motion.footer
         ref={ref}
         style={{ opacity }}
-        className="w-full py-4 pb-5"
+        className="w-full pt-4 pb-5"
       >
-        <div className="container flex justify-center items-center gap-4 text-center text-xs font-normal" style={{ color: '#c0c0c0' }}>
-            <span>© 2025 Built by Moukthik Anand</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-current hover:bg-white/10" onClick={() => setIsAboutModalOpen(true)}>
+        <div className="container flex justify-center items-center gap-4 text-center">
+            <span className="text-[13px] font-medium tracking-[0.3px] text-[#6b6b6b] dark:text-[#a8a8a8]">
+              © 2025 Built by Moukthik Anand
+            </span>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-6 w-6 text-[#6b6b6b] dark:text-[#a8a8a8] hover:bg-black/10 dark:hover:bg-white/10" 
+              onClick={() => setIsAboutModalOpen(true)}
+            >
                 <Info className="h-4 w-4" />
                 <span className="sr-only">About Dopamind</span>
             </Button>
