@@ -2,7 +2,7 @@
 
 /**
  * @fileOverview Transforms user doodles into stylized pixel art using an AI tool.
- *   The doodle transformation leverages the googleai/gemini-2.5-flash-image-preview model for image-to-image processing.
+ *   The doodle transformation leverages the googleai/gemini-pro-vision model for image-to-image processing.
  *
  * - transformDoodleToPixelArt - A function that handles the transformation of a doodle to pixel art.
  * - TransformDoodleToPixelArtInput - The input type for the transformDoodleToPixelArt function.

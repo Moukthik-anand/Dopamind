@@ -9,6 +9,7 @@ import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 
 const CANVAS_SIZE = 300;
+const TRANSFORM_COOLDOWN = 10000; // 10 seconds
 
 export default function PixelPaintPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -16,6 +17,7 @@ export default function PixelPaintPage() {
   const [isTransforming, setIsTransforming] = useState(false);
   const [pixelArt, setPixelArt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastTransformTime, setLastTransformTime] = useState(0);
   const { toast } = useToast();
 
   const getCanvasContext = () => {
@@ -86,16 +88,32 @@ export default function PixelPaintPage() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    const now = Date.now();
+    if (now - lastTransformTime < TRANSFORM_COOLDOWN) {
+      toast({
+        title: "The AI artist is taking a short break.",
+        description: `Try again in a few seconds.`,
+      });
+      return;
+    }
+
     setIsTransforming(true);
     setPixelArt(null);
     setError(null);
+    setLastTransformTime(now);
+
     try {
       const doodleDataUri = canvas.toDataURL('image/png');
       const result = await transformDoodleToPixelArt({ doodleDataUri });
       setPixelArt(result.pixelArtDataUri);
     } catch (error) {
       console.error('Failed to transform doodle:', error);
-      setError('Could not generate pixel art. The AI model may be overloaded. Please try again later.');
+      const errorMessage = (error as Error)?.message || "Could not generate pixel art.";
+      if (errorMessage.includes("429")) {
+        setError("The AI artist is very popular! Quota exceeded. Please try again later.");
+      } else {
+        setError('Could not generate pixel art. The AI model may be overloaded. Please try again later.');
+      }
       toast({
         variant: "destructive",
         title: "Transformation Failed",
