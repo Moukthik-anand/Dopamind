@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -9,13 +10,7 @@ import {
   CardTitle,
   CardDescription,
 } from '@/components/ui/card';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { Brush, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 const CANVAS_SIZE = 300;
 const LOCAL_STORAGE_KEY = 'pixel-paint-doodle';
@@ -95,7 +90,9 @@ export default function PixelPaintPage() {
   useEffect(() => {
     const ctx = getCanvasContext();
     if (!ctx) return;
-    ctx.strokeStyle = '#000000';
+    // Use the primary color for the brush for better theme consistency
+    const themeColor = getComputedStyle(document.documentElement).getPropertyValue('--primary');
+    ctx.strokeStyle = `hsl(${themeColor.trim()})`;
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
     loadCanvas();
@@ -124,7 +121,7 @@ export default function PixelPaintPage() {
               ref={canvasRef}
               width={CANVAS_SIZE}
               height={CANVAS_SIZE}
-              className="rounded-lg cursor-crosshair bg-white"
+              className="rounded-lg cursor-crosshair bg-white dark:bg-muted"
               onMouseDown={startDrawing}
               onMouseMove={draw}
               onMouseUp={stopDrawing}
@@ -134,25 +131,11 @@ export default function PixelPaintPage() {
               onTouchEnd={stopDrawing}
             />
           </div>
-          <div className="flex gap-2">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" className="cursor-default">
-                    <Brush className="mr-2" />
-                    Create your calm
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Your drawing is saved automatically!</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <Button onClick={clearCanvas} variant="destructive"
-            aria-label="Clear canvas">
-              <Trash2 className="mr-2" />
-              Clear
+          <div className="flex flex-col items-center gap-3 pt-2">
+             <p className="text-sm text-muted-foreground">Create your calm.</p>
+             <Button onClick={clearCanvas} variant="outline" size="sm">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Clear Canvas
             </Button>
           </div>
         </CardContent>
