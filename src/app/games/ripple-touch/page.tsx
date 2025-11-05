@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
@@ -38,10 +39,10 @@ export default function RippleTouchPage() {
       y,
       radius: 0,
       alpha: 1.0,
-      maxRadius: 80 + Math.random() * 40, // 80-120px
+      maxRadius: 60 + Math.random() * 40,
     });
     // Limit total ripples for performance
-    if (ripplesRef.current.length > 12) {
+    if (ripplesRef.current.length > 15) {
       ripplesRef.current.shift();
     }
   }, []);
@@ -51,43 +52,29 @@ export default function RippleTouchPage() {
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas) return;
 
-    // Apply a faint translucent overlay for a fading trail effect
-    ctx.fillStyle = "rgba(167, 139, 250, 0.05)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.globalCompositeOperation = "lighter";
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Set glow effect
-    ctx.shadowBlur = 25;
-    ctx.shadowColor = "rgba(255, 255, 255, 0.5)";
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineWidth = 2;
 
     for (let i = ripplesRef.current.length - 1; i >= 0; i--) {
       const r = ripplesRef.current[i];
       
-      // Animate ripple
-      r.radius += 1; // Slow expansion
-      r.alpha -= 0.01; // Gradual fade
+      r.radius += 0.7; // Slower expansion
+      r.alpha -= 0.015; // Gradual fade
       
       if (r.alpha <= 0 || r.radius > r.maxRadius) {
         ripplesRef.current.splice(i, 1);
         continue;
       }
       
-      // Create a soft radial gradient for each ripple
-      const gradient = ctx.createRadialGradient(r.x, r.y, 0, r.x, r.y, r.radius);
-      gradient.addColorStop(0, `rgba(255, 255, 255, ${r.alpha * 0.4})`);
-      gradient.addColorStop(0.6, `rgba(255, 255, 255, ${r.alpha * 0.15})`);
-      gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-      
-      ctx.fillStyle = gradient;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha * 0.3})`;
       ctx.beginPath();
       ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.stroke();
     }
     
-    // Reset canvas settings
     ctx.globalCompositeOperation = "source-over";
-    ctx.shadowBlur = 0;
 
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, []);
@@ -133,6 +120,7 @@ export default function RippleTouchPage() {
 
   const handleStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     setIsDrawing(true);
+    if (showHint) setShowHint(false);
     const coords = getCoordinates(e);
     coords.forEach(coord => createRipple(coord.x, coord.y));
     lastRippleTimeRef.current = Date.now();
@@ -140,10 +128,10 @@ export default function RippleTouchPage() {
   
   const handleMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
-    e.preventDefault(); // Prevent scrolling on touch devices
+    e.preventDefault(); 
     
     const now = Date.now();
-    if (now - lastRippleTimeRef.current > 120) { // Throttle ripple creation
+    if (now - lastRippleTimeRef.current > 100) { 
       const coords = getCoordinates(e);
       coords.forEach(coord => createRipple(coord.x, coord.y));
       lastRippleTimeRef.current = now;
@@ -162,7 +150,7 @@ export default function RippleTouchPage() {
           <div className="relative w-full h-[60vh] max-h-[700px] overflow-hidden">
             <canvas
               ref={canvasRef}
-              className="w-full h-full cursor-pointer bg-gradient-to-br from-purple-400 via-blue-400 to-indigo-400"
+              className="w-full h-full cursor-pointer bg-gradient-to-br from-[#a78bfa] to-[#93c5fd]"
               onMouseDown={handleStart}
               onTouchStart={handleStart}
               onMouseMove={handleMove}
@@ -179,7 +167,7 @@ export default function RippleTouchPage() {
                         exit={{ opacity: 0 }}
                         className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm pointer-events-none"
                     >
-                        Glide your finger to create flowing water waves.
+                        Slide your finger to create ripples.
                     </motion.div>
                 )}
             </AnimatePresence>
