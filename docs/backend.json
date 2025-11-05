@@ -4,11 +4,11 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user's profile, storing their XP, streaks, and preferences.",
+      "description": "Stores user profile information including XP, streaks, and preferences.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the UserProfile entity."
+          "description": "Unique identifier for the user profile."
         },
         "userId": {
           "type": "string",
@@ -22,9 +22,9 @@
           "type": "number",
           "description": "User's current daily streak."
         },
-        "favoriteGameIds": {
+        "favoriteGames": {
           "type": "array",
-          "description": "References to favorite games. (Relationship: UserProfile 1:N Microgame)",
+          "description": "References to the user's favorite games.",
           "items": {
             "type": "string"
           }
@@ -36,18 +36,20 @@
       },
       "required": [
         "id",
-        "userId"
+        "userId",
+        "xp",
+        "streak"
       ]
     },
     "Microgame": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Microgame",
       "type": "object",
-      "description": "Represents a microgame available in the hub.",
+      "description": "Stores information about individual microgames.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Microgame entity."
+          "description": "Unique identifier for the microgame."
         },
         "name": {
           "type": "string",
@@ -56,31 +58,25 @@
         "description": {
           "type": "string",
           "description": "Description of the microgame."
-        },
-        "url": {
-          "type": "string",
-          "description": "URL where the microgame can be accessed.",
-          "format": "uri"
         }
       },
       "required": [
         "id",
         "name",
-        "description",
-        "url"
+        "description"
       ]
     },
     "PlayHistory": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "PlayHistory",
       "type": "object",
-      "description": "Represents a user's play history for a specific microgame.",
+      "description": "Stores the user's play history for each microgame.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the PlayHistory entry."
+          "description": "Unique identifier for the play history entry."
         },
-        "userProfileId": {
+        "userId": {
           "type": "string",
           "description": "Reference to UserProfile. (Relationship: UserProfile 1:N PlayHistory)"
         },
@@ -88,56 +84,55 @@
           "type": "string",
           "description": "Reference to Microgame. (Relationship: Microgame 1:N PlayHistory)"
         },
-        "playTimestamp": {
+        "timestamp": {
           "type": "string",
           "description": "Timestamp of when the game was played.",
           "format": "date-time"
         },
         "score": {
           "type": "number",
-          "description": "The score the user achieved during the game play."
+          "description": "User's score in the microgame."
         }
       },
       "required": [
         "id",
-        "userProfileId",
+        "userId",
         "microgameId",
-        "playTimestamp"
+        "timestamp"
       ]
     },
     "DailyChallenge": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "DailyChallenge",
       "type": "object",
-      "description": "Represents the daily challenge generated for a user.",
+      "description": "Stores the AI-generated daily challenge for a user.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the DailyChallenge."
+          "description": "Unique identifier for the daily challenge."
         },
-        "userProfileId": {
+        "userId": {
           "type": "string",
-          "description": "Reference to UserProfile. (Relationship: UserProfile 1:1 DailyChallenge)"
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N DailyChallenge)"
         },
         "date": {
           "type": "string",
-          "description": "Date for which the challenge is valid (YYYY-MM-DD).",
-          "format": "date-time"
+          "description": "Date for which the challenge is generated.",
+          "format": "date"
         },
-        "microgameId": {
+        "gameId": {
           "type": "string",
-          "description": "Reference to Microgame for the daily challenge."
+          "description": "Reference to Microgame to be suggested for the day"
         },
         "challengeText": {
           "type": "string",
-          "description": "Text describing the daily challenge."
+          "description": "Textual description of the daily challenge."
         }
       },
       "required": [
         "id",
-        "userProfileId",
+        "userId",
         "date",
-        "microgameId",
         "challengeText"
       ]
     }
@@ -145,68 +140,23 @@
   "auth": {
     "providers": [
       "password",
-      "anonymous",
-      "google.com"
+      "anonymous"
     ]
   },
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}/userProfiles/{userProfileId}",
+        "path": "/users/{userId}/userProfile",
         "definition": {
           "entityName": "UserProfile",
           "schema": {
             "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores user profile data. Path-based ownership ensures only the user can access their profile.",
+          "description": "Stores user profile information. Path-based ownership ensures only the user can access their profile.",
           "params": [
             {
               "name": "userId",
-              "description": "The ID of the user.  Matches the Firebase Auth UID."
-            },
-            {
-              "name": "userProfileId",
-              "description": "The ID of the user profile document. Generally the same as the user ID."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/playHistory/{playHistoryId}",
-        "definition": {
-          "entityName": "PlayHistory",
-          "schema": {
-            "$ref": "#/backend/entities/PlayHistory"
-          },
-          "description": "Stores user's play history. Path-based ownership ensures only the user can access their play history.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The ID of the user.  Matches the Firebase Auth UID."
-            },
-            {
-              "name": "playHistoryId",
-              "description": "The ID of the play history entry."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/dailyChallenges/{dailyChallengeId}",
-        "definition": {
-          "entityName": "DailyChallenge",
-          "schema": {
-            "$ref": "#/backend/entities/DailyChallenge"
-          },
-          "description": "Stores user's daily challenges. Path-based ownership ensures only the user can access their daily challenges.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The ID of the user.  Matches the Firebase Auth UID."
-            },
-            {
-              "name": "dailyChallengeId",
-              "description": "The ID of the daily challenge document."
+              "description": "The unique ID of the user."
             }
           ]
         }
@@ -218,16 +168,56 @@
           "schema": {
             "$ref": "#/backend/entities/Microgame"
           },
-          "description": "Stores microgame data.  Globally accessible data.",
+          "description": "Stores information about available microgames.",
           "params": [
             {
               "name": "microgameId",
-              "description": "The ID of the microgame document."
+              "description": "The unique ID of the microgame."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/playHistory/{playHistoryId}",
+        "definition": {
+          "entityName": "PlayHistory",
+          "schema": {
+            "$ref": "#/backend/entities/PlayHistory"
+          },
+          "description": "Stores the play history for each user. Path-based ownership enforced.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user."
+            },
+            {
+              "name": "playHistoryId",
+              "description": "The unique ID of the play history entry."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/dailyChallenges/{dailyChallengeId}",
+        "definition": {
+          "entityName": "DailyChallenge",
+          "schema": {
+            "$ref": "#/backend/entities/DailyChallenge"
+          },
+          "description": "Stores the daily challenges for each user. Path-based ownership enforced.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the user."
+            },
+            {
+              "name": "dailyChallengeId",
+              "description": "The unique ID of the daily challenge."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to optimize security, scalability, and debuggability, adhering to the core design principles and strategy mandates. \n\n1. **Authorization Independence:** This is achieved by avoiding `get()` calls in security rules. User profiles, play history, and daily challenges are organized under the `/users/{userId}` path, enabling path-based authorization. No `get()` calls are required to validate ownership. For microgames which are global (not user specific), there is a microgames collection.\n\n2. **Clarity of Intent:** The structure uses explicit path-based ownership (`/users/{userId}/...`) to clearly define access control.  The schema uses standard naming conventions.\n\n3. **DBAC (No Custom Claims):**  Authorization relies solely on `request.auth.uid` and path-based rules. No custom claims are used.\n\n4. **QAPs (Rules are not Filters):** The structure supports secure `list` operations. Access to user profiles, play history, and daily challenges are restricted via path-based security. Listing microgames is open to all users.\n\n5. **Invariants:** The structure supports the integrity of ownership through path-based ownership and timestamps are also included. \n\nThe structure effectively segregates user-specific data (profiles, play history, challenges) under their respective user IDs and keeps global microgame data separate, simplifying security rules and aligning with the principle of homogeneous security posture."
+    "reasoning": "The Firestore structure is designed to address the 'auth/operation-not-allowed' error, which typically indicates that Firebase Authentication methods are not enabled in the Firebase Console. While the database structure doesn't directly fix this, it ensures a scalable and secure data model that can support various authentication scenarios after enabling the necessary methods (like Google Sign-In). It focuses on Authorization Independence, enabling clear and debuggable security rules. This is achieved by using path-based ownership for user-specific data and avoiding `get()` calls in security rules. Each collection is designed to have a homogeneous security posture, simplifying rules.\n\nUser profiles are stored in `/users/{userId}/userProfile` for path-based ownership. User-specific data like play history and daily challenges are stored as subcollections of the `/users/{userId}` collection. Microgames are stored in the `/microgames` collection. This design facilitates QAPs by enabling secure `list` operations based on the user's `userId` without relying on complex filtering in rules."
   }
 }
