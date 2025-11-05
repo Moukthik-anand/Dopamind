@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useAuth, useUser, useFirestore } from '@/firebase';
+import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import {
   GoogleAuthProvider,
   signInWithPopup,
@@ -18,7 +18,7 @@ import {
   increment,
   serverTimestamp,
 } from 'firebase/firestore';
-import { updateDocumentNonBlocking } from '@/firebase';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import type { UserProfile } from '@/lib/types';
 
 
@@ -65,31 +65,38 @@ export default function BubblePopperPage() {
   const { user, isUserLoading } = useUser();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
+  const userProfileRef = useMemoFirebase(() => {
+      if (!user || !firestore) return null;
+      return doc(firestore, `users/${user.uid}`);
+  }, [user, firestore]);
+
   // --- Fetch/Create User Profile ---
   useEffect(() => {
-    if (user && firestore) {
-      const userProfileRef = doc(firestore, `users/${user.uid}`);
+    if (userProfileRef) {
       getDoc(userProfileRef).then(async (docSnap) => {
         if (docSnap.exists()) {
           setUserProfile(docSnap.data() as UserProfile);
         } else {
-          const newProfile: UserProfile = {
-            id: user.uid,
-            name: user.displayName || 'Anonymous',
-            email: user.email || '',
-            score: 0,
-            xp: 0,
-            createdAt: new Date(),
-          };
-          // Create the document if it doesn't exist
-          await setDoc(userProfileRef, newProfile);
-          setUserProfile(newProfile);
+          if (user) {
+            const newProfile: UserProfile = {
+              id: user.uid,
+              name: user.displayName || 'Anonymous',
+              email: user.email || '',
+              score: 0,
+              xp: 0,
+              createdAt: new Date(),
+            };
+            // Create the document if it doesn't exist
+            await setDoc(userProfileRef, newProfile);
+            setUserProfile(newProfile);
+          }
         }
       });
     } else {
       setUserProfile(null);
     }
-  }, [user, firestore]);
+  }, [user, userProfileRef]);
+
 
   // --- Sound Initialization & Effects ---
   const playPopSound = useCallback(() => {
@@ -257,7 +264,7 @@ export default function BubblePopperPage() {
     (
       e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
     ) => {
-      if (gameState !== 'playing' || !firestore) return;
+      if (gameState !== 'playing' || !userProfileRef) return;
 
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -278,9 +285,7 @@ export default function BubblePopperPage() {
           setScore((prev) => prev + 1);
 
           if (user) {
-            const userProfileRef = doc(firestore, `users/${user.uid}`);
-            // Use non-blocking update for better performance
-            updateDocumentNonBlocking(userProfileRef, { score: increment(1) });
+            setDocumentNonBlocking(userProfileRef, { score: increment(1) }, { merge: true });
           }
 
           if (navigator.vibrate) navigator.vibrate(50);
@@ -288,7 +293,7 @@ export default function BubblePopperPage() {
         }
       }
     },
-    [gameState, playPopSound, createParticles, user, firestore]
+    [gameState, playPopSound, createParticles, user, userProfileRef]
   );
 
   // --- Auth Functions ---
@@ -316,9 +321,9 @@ export default function BubblePopperPage() {
   return (
     <div className="flex flex-col items-center gap-4">
       <h1 className="text-4xl font-bold font-headline">Bubble Popper</h1>
-      <Card className="w-full max-w-2xl text-center overflow-hidden">
+      <Card className="w-full max-w-2xl text-center overflow-hidden glass-card">
         <CardContent className="p-0">
-          <div className="relative w-full h-[60vh] max-h-[700px] bg-gradient-to-b from-indigo-200 to-purple-200 dark:from-indigo-900/70 dark:to-purple-900/70 overflow-hidden">
+          <div className="relative w-full h-[60vh] max-h-[700px] overflow-hidden">
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 w-full px-4">
               <div className="flex justify-between items-center text-white">
                 <div className="text-left text-sm min-w-[120px]">
@@ -352,7 +357,16 @@ export default function BubblePopperPage() {
                   className="font-bold text-2xl"
                   style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}
                 >
-                  Score: {gameState === 'playing' ? score : displayScore}
+                  Score: {' '}
+                   <motion.span
+                    key={displayScore}
+                    initial={{ scale: 1.2, opacity: 0.5 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className="inline-block"
+                  >
+                    {gameState === 'playing' ? score : displayScore}
+                  </motion.span>
                 </div>
                 <div className="w-[120px]"></div>
               </div>

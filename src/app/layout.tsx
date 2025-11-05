@@ -7,8 +7,6 @@ import { cn } from '@/lib/utils';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { AppTransitions } from '@/components/AppTransitions';
 import { StartupAnimation } from '@/components/StartupAnimation';
-import { ParallaxProvider } from '@/components/ParallaxProvider';
-
 
 export const metadata: Metadata = {
   title: 'Dopamind – Tap. Play. Reset.',
@@ -35,9 +33,9 @@ export default function RootLayout({
           "min-h-screen bg-background font-body antialiased"
         )}
       >
+        <div className="animated-gradient absolute inset-0 z-[-1]" />
         <FirebaseClientProvider>
           <StartupAnimation>
-            <ParallaxProvider>
               <div className="relative flex min-h-screen flex-col">
                   <Header />
                   <AppTransitions>
@@ -46,7 +44,6 @@ export default function RootLayout({
                   <Footer />
               </div>
               <Toaster />
-            </ParallaxProvider>
           </StartupAnimation>
         </FirebaseClientProvider>
       </body>

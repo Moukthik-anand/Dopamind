@@ -27,6 +27,8 @@ import { useDoc } from '@/firebase/firestore/use-doc';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
+import { motion } from 'framer-motion';
+import { AmbientSoundToggle } from '../AmbientSoundToggle';
 
 export function Header() {
   const [randomGamePath, setRandomGamePath] = useState('');
@@ -69,13 +71,24 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/30 backdrop-blur-lg supports-[backdrop-filter]:bg-background/30">
       <div className="container flex h-16 items-center">
         <Link href="/" className="mr-6 flex items-center space-x-2">
           <BrainCircuit className="h-6 w-6 text-primary" />
-          <span className="font-bold font-headline sm:inline-block">
+           <motion.span
+            className="font-bold font-headline sm:inline-block text-foreground"
+            animate={{
+              textShadow: ['0 0 4px rgba(255,255,255,0)', '0 0 8px rgba(217, 184, 222, 0.7)', '0 0 4px rgba(255,255,255,0)'],
+            }}
+            transition={{
+              duration: 1.6,
+              repeat: Infinity,
+              repeatDelay: 18.4,
+              ease: 'easeInOut',
+            }}
+          >
             Dopamind
-          </span>
+          </motion.span>
         </Link>
         <nav className="flex items-center gap-4 text-sm font-medium">
           <Button variant="ghost" asChild>
@@ -93,7 +106,7 @@ export function Header() {
             </div>
           ) : user ? (
             <>
-              <div className="flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium">
+              <div className="flex items-center gap-2 rounded-full border border-white/20 bg-black/10 px-3 py-1 text-sm font-medium">
                 <Star className="h-4 w-4 text-yellow-400" />
                 <span>{userProfile?.score ?? 0}</span>
               </div>
@@ -114,7 +127,7 @@ export function Header() {
                     </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuContent className="w-56 glass-card" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
@@ -139,6 +152,7 @@ export function Header() {
               Login
             </Button>
           )}
+          <AmbientSoundToggle />
           <ThemeToggle />
         </div>
       </div>

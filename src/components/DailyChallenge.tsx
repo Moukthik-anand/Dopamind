@@ -35,7 +35,7 @@ export function DailyChallenge() {
   }, [challenge]);
 
   return (
-    <Card className="bg-gradient-to-br from-primary/20 to-accent/20 border-primary/30 shadow-lg">
+    <Card className="glass-card shadow-lg">
       <CardHeader>
         <div className="flex items-center gap-3">
             <Award className="w-8 h-8 text-primary" />
