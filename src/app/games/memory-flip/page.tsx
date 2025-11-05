@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -38,10 +39,15 @@ const generateCards = () => {
 };
 
 export default function MemoryFlipPage() {
-  const [cards, setCards] = useState(generateCards());
+  const [cards, setCards] = useState<ReturnType<typeof generateCards>>([]);
   const [flippedCards, setFlippedCards] = useState<number[]>([]);
   const [moves, setMoves] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+
+  useEffect(() => {
+    // Generate and shuffle cards on the client side to avoid hydration errors
+    setCards(generateCards());
+  }, []);
 
   useEffect(() => {
     if (flippedCards.length === 2) {
@@ -75,8 +81,7 @@ export default function MemoryFlipPage() {
   }, [flippedCards, cards]);
 
   useEffect(() => {
-    const allMatched = cards.every(card => card.isMatched);
-    if (allMatched && cards.length > 0) {
+    if (cards.length > 0 && cards.every(card => card.isMatched)) {
       setGameOver(true);
     }
   }, [cards]);
