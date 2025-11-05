@@ -1,10 +1,11 @@
+
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw, ArrowLeft } from 'lucide-react';
+import { RefreshCw, ArrowLeft, StopCircle } from 'lucide-react';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -31,7 +32,6 @@ interface Player {
   height: number;
 }
 
-const GAME_DURATION = 60; // 60 seconds
 const CALM_ORB_COLORS = ['#a5f3fc', '#c7d2fe', '#bbf7d0'];
 const STRESS_ORB_COLOR = '#fca5a5';
 
@@ -40,12 +40,11 @@ let orbIdCounter = 0;
 export default function CatchTheCalmPage() {
   const [gameState, setGameState] = useState<GameState>('ready');
   const [xp, setXp] = useState(0);
-  const [time, setTime] = useState(GAME_DURATION);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const orbsRef = useRef<Orb[]>([]);
-  const playerRef = useRef<Player>({ x: 0, y: 0, width: 80, height: 15 });
+  const playerRef = useRef<Player>({ x: 0, y: 0, width: 90, height: 15 });
   
   // Firebase
   const { user } = useUser();
@@ -91,13 +90,15 @@ export default function CatchTheCalmPage() {
 
     // Spawn new orbs
     if (gameState === 'playing' && Math.random() < 0.02) {
-      const isStress = Math.random() < 0.15;
+      const isStress = Math.random() < 0.20; // 1 in 5 chance of stress orb
+      const speed = isStress ? (1 + Math.random() * 1.5) * 1.15 : (1 + Math.random() * 1.5);
+
       orbsRef.current.push({
         id: orbIdCounter++,
         x: Math.random() * canvas.width,
         y: -20,
         r: isStress ? 12 : 10,
-        speed: 1 + Math.random() * 1.5,
+        speed: speed,
         color: isStress ? STRESS_ORB_COLOR : CALM_ORB_COLORS[Math.floor(Math.random() * CALM_ORB_COLORS.length)],
         isStress,
       });
@@ -155,41 +156,24 @@ export default function CatchTheCalmPage() {
   // --- Game State Management ---
   const startGame = () => {
     setXp(0);
-    setTime(GAME_DURATION);
     orbsRef.current = [];
     orbIdCounter = 0;
     setGameState('playing');
   };
 
   const endGame = useCallback(() => {
+    if (gameState !== 'playing') return;
     setGameState('over');
     if (userProfileRef && xp > 0) {
       setDocumentNonBlocking(userProfileRef, { score: increment(xp) }, { merge: true });
     }
-  }, [userProfileRef, xp]);
+  }, [gameState, userProfileRef, xp]);
 
   const resetGame = () => {
     setGameState('ready');
     setXp(0);
-    setTime(GAME_DURATION);
   };
   
-  // --- Timer ---
-  useEffect(() => {
-    if (gameState !== 'playing') return;
-
-    if (time <= 0) {
-      endGame();
-      return;
-    }
-    
-    const interval = setInterval(() => {
-      setTime(prev => Math.max(0, prev - 1));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [gameState, time, endGame]);
-
   // --- Canvas and Player Setup & Event Listeners ---
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -249,9 +233,8 @@ export default function CatchTheCalmPage() {
       <Card className="w-full max-w-2xl text-center overflow-hidden shadow-lg border border-black/5 dark:border-white/5">
         <CardContent className="p-0">
           <div className="relative w-full h-[60vh] max-h-[700px] overflow-hidden">
-             <div className="absolute top-2 left-0 z-20 w-full px-4 flex justify-between text-white font-bold text-lg" style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}>
+             <div className="absolute top-2 left-0 z-20 w-full px-4 flex justify-center text-white font-bold text-lg" style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}>
               <span>Calm: {xp} XP</span>
-              <span>Time: {time}s</span>
             </div>
             <canvas
               ref={canvasRef}
@@ -275,7 +258,7 @@ export default function CatchTheCalmPage() {
                 )}
                 {gameState === 'over' && (
                    <>
-                    <h2 className="text-3xl font-bold text-white mb-2">Time's Up!</h2>
+                    <h2 className="text-3xl font-bold text-white mb-2">Game Over!</h2>
                     <p className="text-xl text-white mb-4">You gained {xp} calm XP!</p>
                     <div className="flex gap-4">
                         <Button onClick={resetGame} size="lg">
@@ -298,6 +281,26 @@ export default function CatchTheCalmPage() {
           </div>
         </CardContent>
       </Card>
+      <div className="w-full flex justify-center mt-4">
+        {gameState === 'playing' && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Button
+              onClick={endGame}
+              className="rounded-xl py-2 px-5 font-medium text-white bg-accent/80 hover:bg-accent"
+              style={{ backgroundColor: '#a78bfa' }}
+            >
+              <StopCircle className="mr-2 h-5 w-5" /> End Game
+            </Button>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }
+
+    
