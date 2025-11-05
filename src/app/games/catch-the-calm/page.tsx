@@ -33,7 +33,7 @@ interface Player {
 }
 
 const CALM_ORB_COLORS = ['#a5f3fc', '#c7d2fe', '#bbf7d0'];
-const STRESS_ORB_COLOR = '#fca5a5';
+const STRESS_ORB_COLOR = '#f87171';
 
 let orbIdCounter = 0;
 
@@ -89,8 +89,8 @@ export default function CatchTheCalmPage() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Spawn new orbs
-    if (gameState === 'playing' && Math.random() < 0.04) {
-      const isStress = Math.random() < 0.35; // Increased red orb frequency
+    if (gameState === 'playing' && Math.random() < 0.06 && orbsRef.current.length < 25) {
+      const isStress = Math.random() < 0.35; // 35% chance for a stress orb
       const baseSpeed = 2 + Math.random() * 2;
       const speed = isStress ? baseSpeed * 1.5 : baseSpeed;
 
@@ -98,7 +98,7 @@ export default function CatchTheCalmPage() {
         id: orbIdCounter++,
         x: Math.random() * canvas.width,
         y: -20,
-        r: isStress ? 12 : 10,
+        r: isStress ? 12 + Math.random() * 3 : 10,
         speed: speed,
         color: isStress ? STRESS_ORB_COLOR : CALM_ORB_COLORS[Math.floor(Math.random() * CALM_ORB_COLORS.length)],
         isStress,
@@ -131,8 +131,15 @@ export default function CatchTheCalmPage() {
       ctx.beginPath();
       ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2);
       ctx.fillStyle = orb.color;
-      ctx.shadowColor = orb.color;
-      ctx.shadowBlur = 10;
+      
+      if (orb.isStress) {
+          ctx.shadowColor = "rgba(255,100,100,0.4)";
+          ctx.shadowBlur = 10;
+      } else {
+          ctx.shadowColor = orb.color;
+          ctx.shadowBlur = 10;
+      }
+
       ctx.fill();
       ctx.shadowBlur = 0;
       
@@ -258,22 +265,20 @@ export default function CatchTheCalmPage() {
                   </>
                 )}
                 {gameState === 'over' && (
-                   <>
+                   <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex flex-col items-center"
+                   >
                     <h2 className="text-3xl font-bold text-white mb-2">Game Over!</h2>
                     <p className="text-xl text-white mb-4">You gained {xp} calm XP!</p>
-                    <div className="flex gap-4">
+                    <div className="flex justify-center">
                         <Button onClick={resetGame} size="lg">
                             <RefreshCw className="mr-2 h-4 w-4" />
                             Play Again
                         </Button>
-                         <Button asChild variant="secondary">
-                            <Link href="/">
-                                <ArrowLeft className="mr-2 h-4 w-4" />
-                                Back to Games
-                            </Link>
-                        </Button>
                     </div>
-                  </>
+                  </motion.div>
                 )}
               </motion.div>
             )}
@@ -303,5 +308,3 @@ export default function CatchTheCalmPage() {
     </div>
   );
 }
-
-    
