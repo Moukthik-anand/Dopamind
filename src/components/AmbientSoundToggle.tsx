@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useToast } from '@/hooks/use-toast';
 
 const tracks = [
   { name: 'Ocean Waves', path: '/sounds/ocean.mp3' },
@@ -19,18 +20,45 @@ export function AmbientSoundToggle() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     // Initialize audio on the client
-    const audio = new Audio(tracks[currentTrackIndex].path);
+    const audio = new Audio();
     audio.loop = true;
+    audio.preload = 'metadata';
+
+    audio.onerror = () => {
+      toast({
+        variant: 'destructive',
+        title: 'Audio Error',
+        description: 'Audio unavailable right now.',
+      });
+      setIsPlaying(false);
+    };
+
     audioRef.current = audio;
 
     const savedState = localStorage.getItem('ambientSound');
     if (savedState) {
-      const { playing, trackIndex } = JSON.parse(savedState);
-      setIsPlaying(playing);
-      setCurrentTrackIndex(trackIndex);
+      try {
+        const { playing, trackIndex } = JSON.parse(savedState);
+        if(typeof playing === 'boolean') setIsPlaying(playing);
+        if(typeof trackIndex === 'number' && trackIndex >= 0 && trackIndex < tracks.length) {
+          setCurrentTrackIndex(trackIndex);
+          audio.src = tracks[trackIndex].path;
+        } else {
+           audio.src = tracks[currentTrackIndex].path;
+        }
+      } catch {
+        audio.src = tracks[currentTrackIndex].path;
+      }
+    } else {
+       audio.src = tracks[currentTrackIndex].path;
+    }
+
+    return () => {
+      audioRef.current?.pause();
     }
   }, []);
 
@@ -55,7 +83,7 @@ export function AmbientSoundToggle() {
         audioRef.current.pause();
       }
     }
-    localStorage.setItem(
+     localStorage.setItem(
       'ambientSound',
       JSON.stringify({ playing: isPlaying, trackIndex: currentTrackIndex })
     );
