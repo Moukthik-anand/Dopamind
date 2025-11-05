@@ -305,4 +305,6 @@ export default function BubblePopperPage() {
       </Card>
     </div>
   );
- 
+}
+
+    
