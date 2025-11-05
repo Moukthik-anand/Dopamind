@@ -20,7 +20,7 @@ export function DailyChallenge() {
     // Mock challenge generation
     setLoading(true);
     const mockChallenge: DailyChallengeOutput = {
-      challenge: 'Pop 50 bubbles in under a minute!',
+      challenge: 'Pop 80 bubbles in under a minute!',
       suggestedGame: 'Bubble Popper'
     };
     setTimeout(() => {
