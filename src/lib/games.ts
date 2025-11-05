@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { CircleDashed, Wind, Brain } from 'lucide-react';
+import { CircleDashed, Wind, Brain, Brush } from 'lucide-react';
 
 export interface Game {
   id: string;
@@ -31,5 +31,12 @@ export const games: Game[] = [
     description: 'Test your focus by matching card pairs.',
     icon: Brain,
     path: '/games/memory-flip',
+  },
+  {
+    id: 'pixel-paint',
+    title: 'Pixel Paint',
+    description: 'Doodle and watch AI transform it into pixel art.',
+    icon: Brush,
+    path: '/games/pixel-paint',
   },
 ];

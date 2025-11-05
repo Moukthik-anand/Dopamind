@@ -4,6 +4,7 @@ import { Header } from '@/components/layout/Header';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { AppTransitions } from '@/components/AppTransitions';
 
 export const metadata: Metadata = {
   title: 'Dopamind – Tap. Play. Reset.',
@@ -33,7 +34,9 @@ export default function RootLayout({
         <FirebaseClientProvider>
           <div className="relative flex min-h-screen flex-col">
               <Header />
-              <main className="flex-1">{children}</main>
+              <AppTransitions>
+                <main className="flex-1">{children}</main>
+              </AppTransitions>
           </div>
           <Toaster />
         </FirebaseClientProvider>
