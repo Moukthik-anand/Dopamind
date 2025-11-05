@@ -9,8 +9,17 @@ import { cn } from '@/lib/utils';
 import * as LucideIcons from 'lucide-react';
 
 const icons = [
-  'Cat', 'Dog', 'Fish', 'Bird', 'Rabbit', 'Turtle', 'Bug', 'Ant'
-].map(name => ({ name, icon: (LucideIcons as any)[name] as React.ComponentType<{ className: string }> }));
+  'Cat', 'Dog', 'Fish', 'Bird', 'Rabbit', 'Turtle', 'Bug', 'Beetle'
+].map(name => {
+  const IconComponent = (LucideIcons as any)[name];
+  if (!IconComponent) {
+    console.warn(`Icon "${name}" not found in lucide-react. Check for typos.`);
+    // Return a placeholder or default icon if needed
+    return { name, icon: LucideIcons.HelpCircle };
+  }
+  return { name, icon: IconComponent as React.ComponentType<{ className: string }> };
+});
+
 
 const generateCards = () => {
   const cardIcons = [...icons, ...icons];
