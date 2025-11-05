@@ -48,13 +48,13 @@ const transformDoodleToPixelArtFlow = ai.defineFlow(
   },
   async input => {
     const {media} = await ai.generate({
-      model: 'googleai/gemini-pro-vision',
+      model: 'googleai/gemini-1.5-flash-latest',
       prompt: [
         {media: {url: input.doodleDataUri}},
-        {text: 'Transform this doodle into stylized pixel art.'},
+        {text: 'Transform this doodle into 16-bit pixel art.'},
       ],
       config: {
-        responseModalities: ['TEXT', 'IMAGE'], // MUST provide both TEXT and IMAGE, IMAGE only won't work
+        responseModalities: ['IMAGE'],
       },
     });
 
