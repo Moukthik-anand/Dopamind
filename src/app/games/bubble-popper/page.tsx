@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -6,20 +5,38 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, increment } from 'firebase/firestore';
 
 // --- Constants ---
 const GAME_DURATION = 45; // seconds
-const BUBBLE_SPAWN_RATE = 300; // ms
 
 type GameState = 'ready' | 'playing' | 'over';
 
 interface Bubble {
+  id: number;
   x: number;
   y: number;
   r: number;
   speed: number;
   color: string;
 }
+
+interface Particle {
+  x: number;
+  y: number;
+  r: number;
+  alpha: number;
+  vx: number;
+  vy: number;
+}
+
+let bubbleIdCounter = 0;
 
 export default function BubblePopperPage() {
   const [gameState, setGameState] = useState<GameState>('ready');
@@ -29,26 +46,54 @@ export default function BubblePopperPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const gameTimerRef = useRef<NodeJS.Timeout>();
-  const bubbleSpawnerRef = useRef<NodeJS.Timeout>();
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const bubblesRef = useRef<Bubble[]>([]);
+  const particlesRef = useRef<Particle[]>([]);
+
+  // --- Firebase Hooks ---
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
+  const [userXP, setUserXP] = useState<number | null>(null);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, `users/${user.uid}/userProfiles/${user.uid}`);
+  }, [firestore, user]);
+
+  useEffect(() => {
+    if (user && userProfileRef) {
+      getDoc(userProfileRef).then(docSnap => {
+        if (docSnap.exists()) {
+          setUserXP(docSnap.data().xp);
+        } else {
+          // Create profile if it doesn't exist
+          setDoc(userProfileRef, {
+            id: user.uid,
+            userId: user.uid,
+            xp: 0,
+            streak: 0,
+            favoriteGameIds: [],
+            themePreference: 'light',
+          });
+          setUserXP(0);
+        }
+      });
+    } else {
+      setUserXP(null);
+    }
+  }, [user, userProfileRef]);
+
 
   // --- Sound Initialization & Effects ---
-  useEffect(() => {
-    // Safari requires a user gesture to start AudioContext, so we create it on first interaction.
-    // We'll lazy-initialize it in the pop effect.
-    return () => {
-      audioContextRef.current?.close();
-    };
-  }, []);
-
   const playPopSound = useCallback(() => {
     if (!audioContextRef.current) {
       try {
-        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+        audioContextRef.current = new (window.AudioContext ||
+          (window as any).webkitAudioContext)();
       } catch (e) {
-        console.error("AudioContext not supported.", e);
+        console.error('AudioContext not supported.', e);
         return;
       }
     }
@@ -67,17 +112,17 @@ export default function BubblePopperPage() {
     o.stop(p.currentTime + 0.25);
   }, []);
 
-  const spawnBubble = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const r = 20 + Math.random() * 30; // Radius from 20 to 50
-    bubblesRef.current.push({
-      x: Math.random() * (canvas.width - 2 * r) + r,
-      y: canvas.height + r,
-      r,
-      speed: 1 + Math.random() * 2, // Speed from 1 to 3
-      color: `hsla(${200 + Math.random() * 60}, 100%, 70%, 0.7)`
-    });
+  const createParticles = useCallback((x: number, y: number) => {
+    for (let i = 0; i < 5; i++) {
+      particlesRef.current.push({
+        x,
+        y,
+        r: Math.random() * 2 + 1,
+        alpha: 1,
+        vx: (Math.random() - 0.5) * 4,
+        vy: (Math.random() - 0.5) * 4,
+      });
+    }
   }, []);
 
   // --- Game Loop ---
@@ -88,10 +133,24 @@ export default function BubblePopperPage() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Spawn new bubbles if needed
+    if (gameState === 'playing' && bubblesRef.current.length < 25) {
+        const r = 20 + Math.random() * 30;
+        bubblesRef.current.push({
+          id: bubbleIdCounter++,
+          x: Math.random() * (canvas.width - 2 * r) + r,
+          y: canvas.height + r,
+          r,
+          speed: 1 + Math.random() * 2,
+          color: `hsla(${200 + Math.random() * 60}, 100%, 70%, 0.7)`,
+        });
+    }
+
+    // Draw and update bubbles
     for (let i = bubblesRef.current.length - 1; i >= 0; i--) {
       const b = bubblesRef.current[i];
       b.y -= b.speed;
-      
+
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
       ctx.fillStyle = b.color;
@@ -107,8 +166,28 @@ export default function BubblePopperPage() {
         bubblesRef.current.splice(i, 1);
       }
     }
+
+    // Draw and update particles
+    for (let i = particlesRef.current.length - 1; i >= 0; i--) {
+      const p = particlesRef.current[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= 0.05;
+
+      ctx.globalAlpha = p.alpha;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'white';
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      if (p.alpha <= 0) {
+        particlesRef.current.splice(i, 1);
+      }
+    }
     animationFrameRef.current = requestAnimationFrame(gameLoop);
-  }, []);
+  }, [gameState]);
+
 
   // --- Game State Management ---
   const startGame = useCallback(() => {
@@ -116,43 +195,35 @@ export default function BubblePopperPage() {
     setTimeLeft(GAME_DURATION);
     setGameState('playing');
     bubblesRef.current = [];
-
-    // Start spawning bubbles
-    bubbleSpawnerRef.current = setInterval(spawnBubble, BUBBLE_SPAWN_RATE);
-    animationFrameRef.current = requestAnimationFrame(gameLoop);
+    particlesRef.current = [];
+    bubbleIdCounter = 0;
 
     // Start game timer
     gameTimerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(gameTimerRef.current);
-          clearInterval(bubbleSpawnerRef.current);
           setGameState('over');
-          // Don't stop animation, just bubble spawning
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-  }, [spawnBubble, gameLoop]);
+  }, []);
 
   const resetGame = useCallback(() => {
     if (gameTimerRef.current) clearInterval(gameTimerRef.current);
-    if (bubbleSpawnerRef.current) clearInterval(bubbleSpawnerRef.current);
     if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
 
     setScore(0);
     setTimeLeft(GAME_DURATION);
     setGameState('ready');
     bubblesRef.current = [];
-
-    // Clear canvas
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (ctx && canvas) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-  }, []);
+    particlesRef.current = [];
+    
+    // Restart animation loop
+    animationFrameRef.current = requestAnimationFrame(gameLoop);
+  }, [gameLoop]);
 
   // --- Canvas Setup & Resize ---
   useEffect(() => {
@@ -166,69 +237,131 @@ export default function BubblePopperPage() {
     };
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
+    
+    animationFrameRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       if (gameTimerRef.current) clearInterval(gameTimerRef.current);
-      if (bubbleSpawnerRef.current) clearInterval(bubbleSpawnerRef.current);
     };
-  }, []);
+  }, [gameLoop]);
 
   // --- Input Handling ---
-  const handlePop = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (gameState !== 'playing') return;
+  const handlePop = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      if (gameState !== 'playing') return;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const event = 'touches' in e ? e.touches[0] : e;
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    for (let i = bubblesRef.current.length - 1; i >= 0; i--) {
-      const b = bubblesRef.current[i];
-      const dx = x - b.x;
-      const dy = y - b.y;
-      if (dx * dx + dy * dy <= b.r * b.r) {
-        bubblesRef.current.splice(i, 1);
-        playPopSound();
-        setScore(prev => prev + 1);
-        if (navigator.vibrate) navigator.vibrate(50);
-        break; // Only pop one bubble per click
+      const rect = canvas.getBoundingClientRect();
+      const event = 'touches' in e ? e.touches[0] : e;
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+
+      for (let i = bubblesRef.current.length - 1; i >= 0; i--) {
+        const b = bubblesRef.current[i];
+        const dx = x - b.x;
+        const dy = y - b.y;
+        if (dx * dx + dy * dy <= b.r * b.r) {
+          createParticles(b.x, b.y);
+          bubblesRef.current.splice(i, 1);
+          playPopSound();
+          setScore(prev => prev + 1);
+
+          if (user && userProfileRef) {
+            setDoc(userProfileRef, { xp: increment(1) }, { merge: true });
+            setUserXP(prev => (prev ?? 0) + 1);
+          }
+
+          if (navigator.vibrate) navigator.vibrate(50);
+          break; // Only pop one bubble per click
+        }
       }
-    }
-  }, [gameState, playPopSound]);
+    },
+    [gameState, playPopSound, createParticles, user, userProfileRef]
+  );
   
+    // --- Auth Functions ---
+  const handleGoogleSignIn = async () => {
+    if (!auth) return;
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (error: any) {
+        if (error.code !== 'auth/popup-closed-by-user') {
+            console.error("Google Sign-In error:", error);
+        }
+    }
+  };
+
+  const handleSignOut = () => {
+    if (auth) {
+      signOut(auth);
+    }
+  };
+
   return (
     <div className="flex flex-col items-center gap-4">
       <h1 className="text-4xl font-bold font-headline">Bubble Popper</h1>
       <Card className="w-full max-w-2xl text-center overflow-hidden">
         <CardContent className="p-0">
-          <div className="relative w-full h-[60vh] max-h-[700px] bg-gradient-to-b from-indigo-200 to-purple-200 dark:from-indigo-900/70 dark:to-purple-900/70 overflow-hidden cursor-pointer">
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 text-white font-bold text-2xl" style={{textShadow: '0 0 6px rgba(0,0,0,0.4)'}}>
-                {gameState === 'playing' ? `Score: ${score}` : ''}
+          <div className="relative w-full h-[60vh] max-h-[700px] bg-gradient-to-b from-indigo-200 to-purple-200 dark:from-indigo-900/70 dark:to-purple-900/70 overflow-hidden">
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 w-full px-4">
+              <div className="flex justify-between items-center text-white">
+                <div className="text-left text-sm">
+                  {isUserLoading ? (
+                     <div className="h-5 w-24 bg-white/20 rounded-md animate-pulse" />
+                  ) : user ? (
+                    <div className="flex items-center gap-2">
+                       <span className="font-medium">Hi, {user.displayName?.split(' ')[0]}</span>
+                       <Button size="sm" variant="ghost" className="text-white hover:bg-white/20 h-7 px-2" onClick={handleSignOut}>Logout</Button>
+                    </div>
+                  ) : (
+                    <Button size="sm" className="bg-white/20 text-white hover:bg-white/30 h-8" onClick={handleGoogleSignIn}>Login with Google</Button>
+                  )}
+                </div>
+                <div className="font-bold text-2xl" style={{textShadow: '0 0 6px rgba(0,0,0,0.4)'}}>
+                    {gameState === 'playing' ? `Score: ${score}` : `Total XP: ${userXP ?? '??'}`}
+                </div>
+                <div className="w-1/3"></div>
+              </div>
+
             </div>
-            <canvas 
+            <canvas
               ref={canvasRef}
-              className="w-full h-full"
+              className="w-full h-full cursor-pointer"
               onClick={handlePop}
               onTouchStart={handlePop}
             />
             {gameState !== 'playing' && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-10">
                 {gameState === 'ready' && (
-                  <motion.div initial={{opacity: 0, y: 20}} animate={{opacity: 1, y: 0}}>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
                     <h2 className="text-3xl font-bold text-white mb-2">Pop the Bubbles!</h2>
-                    <p className="text-white mb-4">You have {GAME_DURATION} seconds.</p>
-                    <Button onClick={startGame} size="lg">Start Game</Button>
+                    <p className="text-white mb-4">
+                      You have {GAME_DURATION} seconds.
+                    </p>
+                    <Button onClick={startGame} size="lg">
+                      Start Game
+                    </Button>
                   </motion.div>
                 )}
                 {gameState === 'over' && (
-                  <motion.div initial={{opacity: 0, y: 20}} animate={{opacity: 1, y: 0}}>
-                    <h2 className="text-3xl font-bold text-white mb-2">Time&apos;s up!</h2>
-                    <p className="text-xl text-white mb-4">You popped {score} bubbles!</p>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    <h2 className="text-3xl font-bold text-white mb-2">
+                      Time&apos;s up!
+                    </h2>
+                    <p className="text-xl text-white mb-4">
+                      You popped {score} bubbles!
+                    </p>
                     <Button onClick={resetGame} size="lg">
                       <RefreshCw className="mr-2 h-4 w-4" />
                       Play Again
@@ -248,5 +381,3 @@ export default function BubblePopperPage() {
     </div>
   );
 }
-
-    
