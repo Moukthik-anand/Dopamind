@@ -3,7 +3,7 @@
  * @description This ruleset enforces a strict user-ownership model for personal data while allowing public read access to microgame data.
  *
  * Data Structure:
- * - /users/{userId}/userProfile: Stores user profile information, accessible only by the owning user.
+ * - /users/{userId}: Stores user profile information, accessible only by the owning user.
  * - /users/{userId}/playHistory/{playHistoryId}: Stores play history, accessible only by the owning user.
  * - /users/{userId}/dailyChallenges/{dailyChallengeId}: Stores daily challenges, accessible only by the owning user.
  * - /microgames/{microgameId}: Stores microgame information, publicly readable.
@@ -22,9 +22,9 @@ service cloud.firestore {
 
     /**
      * @description Enforces access control for user profiles. Only the owner can read and write.
-     * @path /users/{userId}/userProfile
+     * @path /users/{userId}
      * @allow (get) User 'user123' can read their own profile.
-     * @allow (list) User 'user123' can list their own profile.
+     * @allow (list) An authenticated user can only list their own profile document.
      * @allow (create) User 'user123' can create their own profile.
      * @allow (update) User 'user123' can update their own profile.
      * @allow (delete) User 'user123' can delete their own profile.
@@ -35,13 +35,10 @@ service cloud.firestore {
      * @deny (delete) User 'user456' cannot delete 'user123' profile.
      * @principle Enforces document ownership based on the userId path parameter.
      */
-    match /users/{userId}/userProfile {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == userId;
-      allow delete: if isExistingOwner(userId);
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
     }
+    
 
     /**
      * @description Allows public read access to microgame data. Write access is not granted.

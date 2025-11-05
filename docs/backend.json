@@ -4,41 +4,42 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Stores user profile information including XP, streaks, and preferences.",
+      "description": "Stores user profile information including score, XP, and creation date.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the user profile."
+          "description": "Unique identifier for the user profile, matching the Firebase Auth UID."
         },
-        "userId": {
+        "name": {
           "type": "string",
-          "description": "User ID from the authentication system (e.g., Firebase)."
+          "description": "User's display name."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User's email address."
+        },
+        "score": {
+          "type": "number",
+          "description": "User's total score from all games."
         },
         "xp": {
           "type": "number",
           "description": "User's experience points."
         },
-        "streak": {
-          "type": "number",
-          "description": "User's current daily streak."
-        },
-        "favoriteGames": {
-          "type": "array",
-          "description": "References to the user's favorite games.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "themePreference": {
+        "createdAt": {
           "type": "string",
-          "description": "User's preferred theme (e.g., 'light', 'dark')."
+          "format": "date-time",
+          "description": "Timestamp of when the user profile was created."
         }
       },
       "required": [
         "id",
-        "userId",
+        "name",
+        "email",
+        "score",
         "xp",
-        "streak"
+        "createdAt"
       ]
     },
     "Microgame": {
@@ -145,7 +146,7 @@
   "firestore": {
     "structure": [
       {
-        "path": "/users/{userId}/userProfile",
+        "path": "/users/{userId}",
         "definition": {
           "entityName": "UserProfile",
           "schema": {

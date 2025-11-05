@@ -5,27 +5,22 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-// --- Firebase SDK Imports ---
-import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { firebaseConfig } from '@/firebase/config';
-import { 
-  getAuth, 
-  onAuthStateChanged,
-  GoogleAuthProvider, 
-  signInWithPopup, 
+import { useAuth, useUser, useFirestore } from '@/firebase';
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
   signOut,
-  type Auth,
-  type User
 } from 'firebase/auth';
-import { 
-  getFirestore, 
-  doc, 
-  getDoc, 
-  setDoc, 
+import {
+  doc,
+  getDoc,
+  setDoc,
   increment,
-  type Firestore
+  serverTimestamp,
 } from 'firebase/firestore';
+import { updateDocumentNonBlocking } from '@/firebase';
+import type { UserProfile } from '@/lib/types';
+
 
 // --- Constants ---
 const GAME_DURATION = 45; // seconds
@@ -63,54 +58,38 @@ export default function BubblePopperPage() {
 
   const bubblesRef = useRef<Bubble[]>([]);
   const particlesRef = useRef<Particle[]>([]);
-  
+
   // --- Firebase State ---
-  const [auth, setAuth] = useState<Auth | null>(null);
-  const [firestore, setFirestore] = useState<Firestore | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [isUserLoading, setIsUserLoading] = useState(true);
-  const [userXP, setUserXP] = useState<number | null>(null);
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const { user, isUserLoading } = useUser();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  // --- Initialize Firebase ---
-  useEffect(() => {
-    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-    const authInstance = getAuth(app);
-    const firestoreInstance = getFirestore(app);
-    setAuth(authInstance);
-    setFirestore(firestoreInstance);
-
-    const unsubscribe = onAuthStateChanged(authInstance, (user) => {
-      setUser(user);
-      setIsUserLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // --- Firestore Logic ---
+  // --- Fetch/Create User Profile ---
   useEffect(() => {
     if (user && firestore) {
-      const userProfileRef = doc(firestore, `users/${user.uid}/userProfiles/${user.uid}`);
-      getDoc(userProfileRef).then(docSnap => {
+      const userProfileRef = doc(firestore, `users/${user.uid}`);
+      getDoc(userProfileRef).then(async (docSnap) => {
         if (docSnap.exists()) {
-          setUserXP(docSnap.data().xp);
+          setUserProfile(docSnap.data() as UserProfile);
         } else {
-          setDoc(userProfileRef, {
+          const newProfile: UserProfile = {
             id: user.uid,
-            userId: user.uid,
+            name: user.displayName || 'Anonymous',
+            email: user.email || '',
+            score: 0,
             xp: 0,
-            streak: 0,
-            favoriteGameIds: [],
-            themePreference: 'light',
-          });
-          setUserXP(0);
+            createdAt: new Date(),
+          };
+          // Create the document if it doesn't exist
+          await setDoc(userProfileRef, newProfile);
+          setUserProfile(newProfile);
         }
       });
     } else {
-      setUserXP(null);
+      setUserProfile(null);
     }
   }, [user, firestore]);
-
 
   // --- Sound Initialization & Effects ---
   const playPopSound = useCallback(() => {
@@ -161,15 +140,15 @@ export default function BubblePopperPage() {
 
     // Spawn new bubbles if needed
     if (gameState === 'playing' && bubblesRef.current.length < 25) {
-        const r = 20 + Math.random() * 30;
-        bubblesRef.current.push({
-          id: bubbleIdCounter++,
-          x: Math.random() * (canvas.width - 2 * r) + r,
-          y: canvas.height + r,
-          r,
-          speed: 1 + Math.random() * 2,
-          color: `hsla(${200 + Math.random() * 60}, 100%, 70%, 0.7)`,
-        });
+      const r = 20 + Math.random() * 30;
+      bubblesRef.current.push({
+        id: bubbleIdCounter++,
+        x: Math.random() * (canvas.width - 2 * r) + r,
+        y: canvas.height + r,
+        r,
+        speed: 1 + Math.random() * 2,
+        color: `hsla(${200 + Math.random() * 60}, 100%, 70%, 0.7)`,
+      });
     }
 
     // Draw and update bubbles
@@ -214,7 +193,6 @@ export default function BubblePopperPage() {
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, [gameState]);
 
-
   // --- Game State Management ---
   const startGame = useCallback(() => {
     setScore(0);
@@ -226,7 +204,7 @@ export default function BubblePopperPage() {
 
     // Start game timer
     gameTimerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
+      setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(gameTimerRef.current);
           setGameState('over');
@@ -239,14 +217,15 @@ export default function BubblePopperPage() {
 
   const resetGame = useCallback(() => {
     if (gameTimerRef.current) clearInterval(gameTimerRef.current);
-    if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    if (animationFrameRef.current)
+      cancelAnimationFrame(animationFrameRef.current);
 
     setScore(0);
     setTimeLeft(GAME_DURATION);
     setGameState('ready');
     bubblesRef.current = [];
     particlesRef.current = [];
-    
+
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, [gameLoop]);
 
@@ -262,19 +241,22 @@ export default function BubblePopperPage() {
     };
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
-    
+
     animationFrameRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
       if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     };
   }, [gameLoop]);
 
   // --- Input Handling ---
   const handlePop = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    (
+      e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
+    ) => {
       if (gameState !== 'playing' || !firestore) return;
 
       const canvas = canvasRef.current;
@@ -293,12 +275,12 @@ export default function BubblePopperPage() {
           createParticles(b.x, b.y);
           bubblesRef.current.splice(i, 1);
           playPopSound();
-          setScore(prev => prev + 1);
+          setScore((prev) => prev + 1);
 
           if (user) {
-            const userProfileRef = doc(firestore, `users/${user.uid}/userProfiles/${user.uid}`);
-            setDoc(userProfileRef, { xp: increment(1) }, { merge: true });
-            setUserXP(prev => (prev ?? 0) + 1);
+            const userProfileRef = doc(firestore, `users/${user.uid}`);
+            // Use non-blocking update for better performance
+            updateDocumentNonBlocking(userProfileRef, { score: increment(1) });
           }
 
           if (navigator.vibrate) navigator.vibrate(50);
@@ -308,17 +290,17 @@ export default function BubblePopperPage() {
     },
     [gameState, playPopSound, createParticles, user, firestore]
   );
-  
-    // --- Auth Functions ---
+
+  // --- Auth Functions ---
   const handleGoogleSignIn = async () => {
     if (!auth) return;
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
     } catch (error: any) {
-        if (error.code !== 'auth/popup-closed-by-user') {
-            console.error("Google Sign-In error:", error);
-        }
+      if (error.code !== 'auth/popup-closed-by-user') {
+        console.error('Google Sign-In error:', error);
+      }
     }
   };
 
@@ -327,6 +309,9 @@ export default function BubblePopperPage() {
       signOut(auth);
     }
   };
+  
+  const displayScore = user ? userProfile?.score ?? '...' : score;
+
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -336,24 +321,41 @@ export default function BubblePopperPage() {
           <div className="relative w-full h-[60vh] max-h-[700px] bg-gradient-to-b from-indigo-200 to-purple-200 dark:from-indigo-900/70 dark:to-purple-900/70 overflow-hidden">
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 w-full px-4">
               <div className="flex justify-between items-center text-white">
-                <div className="text-left text-sm">
+                <div className="text-left text-sm min-w-[120px]">
                   {isUserLoading ? (
-                     <div className="h-5 w-24 bg-white/20 rounded-md animate-pulse" />
+                    <div className="h-8 w-32 bg-white/20 rounded-md animate-pulse" />
                   ) : user ? (
                     <div className="flex items-center gap-2">
-                       <span className="font-medium">Hi, {user.displayName?.split(' ')[0]}</span>
-                       <Button size="sm" variant="ghost" className="text-white hover:bg-white/20 h-7 px-2" onClick={handleSignOut}>Logout</Button>
+                      <span className="font-medium">
+                        Hi, {user.displayName?.split(' ')[0]}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-white hover:bg-white/20 h-7 px-2"
+                        onClick={handleSignOut}
+                      >
+                        Logout
+                      </Button>
                     </div>
                   ) : (
-                    <Button size="sm" className="bg-white/20 text-white hover:bg-white/30 h-8" onClick={handleGoogleSignIn}>Login with Google</Button>
+                    <Button
+                      size="sm"
+                      className="bg-white/20 text-white hover:bg-white/30 h-8"
+                      onClick={handleGoogleSignIn}
+                    >
+                      Login with Google
+                    </Button>
                   )}
                 </div>
-                <div className="font-bold text-2xl" style={{textShadow: '0 0 6px rgba(0,0,0,0.4)'}}>
-                    {gameState === 'playing' ? `Score: ${score}` : `Total XP: ${userXP ?? '??'}`}
+                <div
+                  className="font-bold text-2xl"
+                  style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}
+                >
+                  Score: {gameState === 'playing' ? score : displayScore}
                 </div>
-                <div className="w-1/3"></div>
+                <div className="w-[120px]"></div>
               </div>
-
             </div>
             <canvas
               ref={canvasRef}
@@ -368,7 +370,9 @@ export default function BubblePopperPage() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                   >
-                    <h2 className="text-3xl font-bold text-white mb-2">Pop the Bubbles!</h2>
+                    <h2 className="text-3xl font-bold text-white mb-2">
+                      Pop the Bubbles!
+                    </h2>
                     <p className="text-white mb-4">
                       You have {GAME_DURATION} seconds.
                     </p>
