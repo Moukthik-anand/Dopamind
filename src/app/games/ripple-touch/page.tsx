@@ -5,18 +5,23 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface Ripple {
+  id: number;
   x: number;
   y: number;
   radius: number;
-  maxRadius: number;
   alpha: number;
-  speed: number;
+  phase: number; // For sinusoidal wave
 }
+
+let rippleIdCounter = 0;
 
 export default function RippleTouchPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const ripplesRef = useRef<Ripple[]>([]);
+  const lastRippleTimeRef = useRef(0);
+  const frameRef = useRef(0);
+
   const [showHint, setShowHint] = useState(true);
   const [isDrawing, setIsDrawing] = useState(false);
 
@@ -29,15 +34,15 @@ export default function RippleTouchPage() {
 
   const createRipple = useCallback((x: number, y: number) => {
     ripplesRef.current.push({
+      id: rippleIdCounter++,
       x,
       y,
       radius: 0,
-      maxRadius: 60 + Math.random() * 60, // Smaller radius for flow effect
       alpha: 1.0,
-      speed: 0.02 + Math.random() * 0.01,
+      phase: Math.random() * Math.PI * 2,
     });
-    // Limit total ripples to prevent lag
-    if (ripplesRef.current.length > 30) {
+    // Limit total ripples
+    if (ripplesRef.current.length > 20) {
       ripplesRef.current.shift();
     }
   }, []);
@@ -46,34 +51,56 @@ export default function RippleTouchPage() {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas) return;
-    
-    // Clear canvas with a semi-transparent fill for a slight trail effect
-    ctx.fillStyle = 'rgba(167, 139, 250, 0.15)';
+
+    frameRef.current++;
+
+    // Clear canvas with a semi-transparent fill for a trailing effect
+    ctx.fillStyle = 'rgba(167, 139, 250, 0.08)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
+
     ctx.globalCompositeOperation = "lighter";
+    
+    // Set glow effect for ripples
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = "#bfefff";
+    ctx.strokeStyle = `rgba(255, 255, 255, 0.25)`;
+    ctx.lineWidth = 2;
 
     for (let i = ripplesRef.current.length - 1; i >= 0; i--) {
       const r = ripplesRef.current[i];
       
       // Animate ripple
-      r.radius += r.maxRadius * r.speed;
-      r.alpha = 1 - (r.radius / r.maxRadius);
+      r.radius += 1; // Slower, consistent expansion
+      r.alpha -= 0.015; // Slower fade
       
       if (r.alpha <= 0) {
         ripplesRef.current.splice(i, 1);
         continue;
       }
       
-      // Draw ripple
+      // Draw ripple with sinusoidal distortion
       ctx.beginPath();
-      ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha * 0.4})`;
-      ctx.lineWidth = 2;
+      const points = 60;
+      for (let j = 0; j <= points; j++) {
+          const angle = (j / points) * Math.PI * 2;
+          const waveRadius = r.radius + Math.sin(angle * 8 + r.phase + frameRef.current * 0.05) * 2;
+          const x = r.x + Math.cos(angle) * waveRadius;
+          const y = r.y + Math.sin(angle) * waveRadius;
+          if (j === 0) {
+              ctx.moveTo(x, y);
+          } else {
+              ctx.lineTo(x, y);
+          }
+      }
+      ctx.closePath();
+      ctx.globalAlpha = r.alpha;
       ctx.stroke();
     }
     
+    // Reset canvas settings
     ctx.globalCompositeOperation = "source-over";
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
 
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, []);
@@ -121,19 +148,24 @@ export default function RippleTouchPage() {
     setIsDrawing(true);
     const coords = getCoordinates(e);
     coords.forEach(coord => createRipple(coord.x, coord.y));
+    lastRippleTimeRef.current = Date.now();
   };
   
   const handleMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
     e.preventDefault(); // Prevent scrolling on touch devices
-    const coords = getCoordinates(e);
-    coords.forEach(coord => createRipple(coord.x, coord.y));
+    
+    const now = Date.now();
+    if (now - lastRippleTimeRef.current > 120) { // Throttle ripple creation
+      const coords = getCoordinates(e);
+      coords.forEach(coord => createRipple(coord.x, coord.y));
+      lastRippleTimeRef.current = now;
+    }
   };
 
   const handleEnd = () => {
     setIsDrawing(false);
   };
-
 
   return (
     <div className="flex flex-col items-center gap-4">
