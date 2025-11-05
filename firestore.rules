@@ -17,6 +17,7 @@
  * - Microgame data is publicly readable, but write access is not permitted in this prototype.
  * - List operations are generally allowed for user-owned data, enabling clients to list their own resources.
  * - The ruleset avoids `get()` calls for authorization, relying on path-based checks for efficiency.
+ * - Enabling Google provider
  */
 rules_version = '2';
 service cloud.firestore {
@@ -72,7 +73,7 @@ service cloud.firestore {
      * @allow (update) - User with UID 'user789' can update their daily challenge at /users/user789/dailyChallenges/challenge3.
      * @allow (delete) - User with UID 'user101' can delete their daily challenge at /users/user101/dailyChallenges/challenge4.
      * @deny (create) - User with UID 'user123' cannot create a daily challenge for another user at /users/otherUser/dailyChallenges/challenge1.
-     * @deny (get) - User with UID 'user456' cannot read another user's daily challenge at /users/otherUser/dailyChallenges/challenge2.
+     * @deny (get) - User.
      * @deny (update) - User with UID 'user789' cannot update another user's daily challenge at /users/otherUser/dailyChallenges/challenge3.
      * @deny (delete) - User with UID 'user101' cannot delete another user's daily challenge at /users/otherUser/dailyChallenges/challenge4.
      * @principle Enforces document ownership for all operations.
