@@ -24,7 +24,7 @@ import type { UserProfile } from '@/lib/types';
 
 
 // --- Constants ---
-const GAME_DURATION = 45; // seconds
+const GAME_DURATION = 60; // seconds
 type GameState = 'ready' | 'playing' | 'over';
 
 interface Bubble {
@@ -117,11 +117,12 @@ export default function BubblePopperPage() {
     const g = p.createGain();
     o.connect(g);
     g.connect(p.destination);
-    o.frequency.value = 500 + Math.random() * 400; // Pitch variation
-    g.gain.setValueAtTime(0.1, p.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.0001, p.currentTime + 0.2);
+    o.type = 'triangle';
+    o.frequency.setValueAtTime(800 + Math.random() * 200, p.currentTime);
+    g.gain.setValueAtTime(0.3, p.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, p.currentTime + 0.1);
     o.start(p.currentTime);
-    o.stop(p.currentTime + 0.25);
+    o.stop(p.currentTime + 0.1);
   }, []);
 
   const createParticles = useCallback((x: number, y: number) => {
@@ -229,6 +230,9 @@ export default function BubblePopperPage() {
 
     if (timeLeft <= 0) {
       setGameState('over');
+      if (user && userProfileRef) {
+          setDocumentNonBlocking(userProfileRef, { score: increment(score) }, { merge: true });
+      }
       return;
     }
 
@@ -237,7 +241,7 @@ export default function BubblePopperPage() {
     }, 1000);
 
     return () => clearInterval(timerId);
-  }, [gameState, timeLeft]);
+  }, [gameState, timeLeft, score, user, userProfileRef]);
 
 
   // --- Canvas Setup & Resize ---
@@ -246,9 +250,11 @@ export default function BubblePopperPage() {
     if (!canvas) return;
 
     const resizeCanvas = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
+      const rect = canvas.parentElement?.getBoundingClientRect();
+      if (rect) {
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+      }
     };
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
@@ -267,13 +273,13 @@ export default function BubblePopperPage() {
     (
       e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
     ) => {
-      if (gameState !== 'playing' || !userProfileRef) return;
+      if (gameState !== 'playing') return;
 
       const canvas = canvasRef.current;
       if (!canvas) return;
 
       const rect = canvas.getBoundingClientRect();
-      const event = 'touches' in e ? e.touches[0] : e;
+      const event = 'touches' in e.nativeEvent ? e.nativeEvent.touches[0] : e.nativeEvent;
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
 
@@ -287,16 +293,12 @@ export default function BubblePopperPage() {
           playPopSound();
           setScore((prev) => prev + 1);
 
-          if (user) {
-            setDocumentNonBlocking(userProfileRef, { score: increment(1) }, { merge: true });
-          }
-
           if (navigator.vibrate) navigator.vibrate(50);
           break;
         }
       }
     },
-    [gameState, playPopSound, createParticles, user, userProfileRef]
+    [gameState, playPopSound, createParticles]
   );
 
   // --- Auth Functions ---
@@ -362,13 +364,13 @@ export default function BubblePopperPage() {
                 >
                   Score: {' '}
                    <motion.span
-                    key={displayScore}
+                    key={score}
                     initial={{ scale: 1.2, opacity: 0.5 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.2, ease: 'easeOut' }}
                     className="inline-block"
                   >
-                    {gameState === 'playing' ? score : displayScore}
+                    {score}
                   </motion.span>
                 </div>
                 <div className="w-[120px]"></div>
@@ -376,8 +378,8 @@ export default function BubblePopperPage() {
             </div>
             <canvas
               ref={canvasRef}
-              className="w-full h-full cursor-pointer"
-              onClick={handlePop}
+              className="w-full h-full cursor-pointer bg-gradient-to-br from-blue-300 via-purple-300 to-pink-300"
+              onMouseDown={handlePop}
               onTouchStart={handlePop}
             />
             {gameState !== 'playing' && (
@@ -407,7 +409,7 @@ export default function BubblePopperPage() {
                       Time&apos;s up!
                     </h2>
                     <p className="text-xl text-white mb-4">
-                      You popped {score} bubbles!
+                      You popped {score} bubbles! Your total score is now {displayScore}.
                     </p>
                     <Button onClick={resetGame} size="lg">
                       <RefreshCw className="mr-2 h-4 w-4" />
@@ -428,3 +430,5 @@ export default function BubblePopperPage() {
     </div>
   );
 }
+
+    
