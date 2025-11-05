@@ -89,9 +89,9 @@ export default function CatchTheCalmPage() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Spawn new orbs
-    if (gameState === 'playing' && Math.random() < 0.035) { // Increased spawn rate
-      const isStress = Math.random() < 0.25; // 1 in 4 chance of stress orb
-      const baseSpeed = 2 + Math.random() * 1.5;
+    if (gameState === 'playing' && Math.random() < 0.04) {
+      const isStress = Math.random() < 0.35; // Increased red orb frequency
+      const baseSpeed = 2 + Math.random() * 2;
       const speed = isStress ? baseSpeed * 1.5 : baseSpeed;
 
       orbsRef.current.push({
@@ -206,9 +206,9 @@ export default function CatchTheCalmPage() {
     
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'ArrowLeft') {
-            playerRef.current.x = Math.max(0, playerRef.current.x - 25);
+            playerRef.current.x = Math.max(0, playerRef.current.x - 35);
         } else if (e.key === 'ArrowRight') {
-            playerRef.current.x = Math.min(canvas.width - playerRef.current.width, playerRef.current.x + 25);
+            playerRef.current.x = Math.min(canvas.width - playerRef.current.width, playerRef.current.x + 35);
         }
     };
 
