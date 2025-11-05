@@ -231,17 +231,21 @@ export default function BubblePopperPage() {
     if (timeLeft <= 0) {
       setGameState('over');
       if (user && userProfileRef) {
+          // Note: score is captured at the time this effect runs
           setDocumentNonBlocking(userProfileRef, { score: increment(score) }, { merge: true });
       }
       return;
     }
-
+    
+    // Timestamp-based timer to prevent lag from re-renders
+    const startTime = Date.now();
     const timerId = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      setTimeLeft(Math.max(GAME_DURATION - elapsed, 0));
+    }, 250); // check more frequently for accuracy
 
     return () => clearInterval(timerId);
-  }, [gameState, timeLeft, score, user, userProfileRef]);
+  }, [gameState, user, userProfileRef, score, timeLeft]);
 
 
   // --- Canvas Setup & Resize ---
@@ -430,5 +434,7 @@ export default function BubblePopperPage() {
     </div>
   );
 }
+
+    
 
     
