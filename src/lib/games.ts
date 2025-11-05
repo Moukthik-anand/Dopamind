@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { CircleDashed, Wind, Brain, Brush, Waves } from 'lucide-react';
+import { CircleDashed, Wind, Brain, Brush, Waves, Droplets } from 'lucide-react';
 
 export interface Game {
   id: string;
@@ -42,8 +42,15 @@ export const games: Game[] = [
   {
     id: 'ripple-flow',
     title: 'Ripple Flow',
-    description: 'Glide to create soothing ripples.',
+    description: 'Slide to create soothing ripples.',
     icon: Waves,
     path: '/games/ripple-touch',
   },
+  {
+    id: 'catch-the-calm',
+    title: 'Catch the Calm',
+    description: 'Move to collect calm, avoid stress.',
+    icon: Droplets,
+    path: '/games/catch-the-calm',
+  }
 ];
