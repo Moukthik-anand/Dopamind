@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { AppTransitions } from '@/components/AppTransitions';
@@ -43,7 +42,6 @@ export default function RootLayout({
                   </AppTransitions>
                   <Footer />
               </div>
-              <Toaster />
           </StartupAnimation>
         </FirebaseClientProvider>
       </body>

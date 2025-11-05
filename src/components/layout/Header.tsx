@@ -28,7 +28,6 @@ import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
 import { motion } from 'framer-motion';
-import { AmbientSoundToggle } from '../AmbientSoundToggle';
 
 export function Header() {
   const [randomGamePath, setRandomGamePath] = useState('');
@@ -152,7 +151,6 @@ export function Header() {
               Login
             </Button>
           )}
-          <AmbientSoundToggle />
           <ThemeToggle />
         </div>
       </div>
