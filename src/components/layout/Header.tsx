@@ -15,37 +15,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { games } from "@/lib/games";
+import { useUser, useAuth } from '@/firebase';
 import {
-  getAuth,
-  onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
   signOut,
-  type Auth,
-  type User,
 } from 'firebase/auth';
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { firebaseConfig } from '@/firebase/config';
 
 
 export function Header() {
   const [randomGamePath, setRandomGamePath] = useState('');
-  const [auth, setAuth] = useState<Auth | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [isUserLoading, setIsUserLoading] = useState(true);
-
-  useEffect(() => {
-    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-    const authInstance = getAuth(app);
-    setAuth(authInstance);
-
-    const unsubscribe = onAuthStateChanged(authInstance, (user) => {
-      setUser(user);
-      setIsUserLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
   
   useEffect(() => {
     const getRandomGamePath = () => {
