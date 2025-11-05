@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { CircleDashed, Wind, Brain, Brush } from 'lucide-react';
+import { CircleDashed, Wind, Brain, Brush, Waves } from 'lucide-react';
 
 export interface Game {
   id: string;
@@ -38,5 +38,12 @@ export const games: Game[] = [
     description: 'Doodle and watch AI transform it into pixel art.',
     icon: Brush,
     path: '/games/pixel-paint',
+  },
+  {
+    id: 'ripple-touch',
+    title: 'Ripple Touch',
+    description: 'Tap to create soothing ripples.',
+    icon: Waves,
+    path: '/games/ripple-touch',
   },
 ];
