@@ -7,9 +7,12 @@ import { DailyChallenge } from '@/components/DailyChallenge';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Dices } from 'lucide-react';
+import { useUser } from '@/firebase';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function Home() {
   const [randomGamePath, setRandomGamePath] = useState('');
+  const { user, isUserLoading } = useUser();
 
   useEffect(() => {
     // This code runs only on the client, after hydration
@@ -20,10 +23,25 @@ export default function Home() {
     setRandomGamePath(getRandomGamePath());
   }, []); // Empty dependency array ensures this runs only once on mount
 
+  const firstName = user?.displayName?.split(' ')[0];
+
   return (
     <div className="container py-8 md:py-12">
       <section className="mb-12 text-center">
-        <h1 className="text-4xl lg:text-5xl font-bold font-headline mb-2 tracking-tight">Welcome Back!</h1>
+        <AnimatePresence>
+          {!isUserLoading && user && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.5, ease: 'easeInOut' }}
+            >
+              <h1 className="text-4xl lg:text-5xl font-bold font-headline mb-2 tracking-tight">
+                Welcome back, {firstName}!
+              </h1>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">Ready to reset? Pick a game and start playing for a moment of calm.</p>
         <div className="mt-6">
             <Button asChild size="lg">
