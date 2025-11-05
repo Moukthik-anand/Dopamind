@@ -4,8 +4,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { RefreshCw, StopCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import {
   GoogleAuthProvider,
@@ -211,6 +211,14 @@ export default function BubblePopperPage() {
     bubbleIdCounter = 0;
   }, []);
 
+  const endGame = useCallback(() => {
+    if (gameState !== 'playing') return; // Prevent multiple calls
+    setGameState('over');
+    if (user && userProfileRef && score > 0) {
+      setDocumentNonBlocking(userProfileRef, { score: increment(score) }, { merge: true });
+    }
+  }, [gameState, user, userProfileRef, score]);
+
   const resetGame = useCallback(() => {
     if (animationFrameRef.current)
       cancelAnimationFrame(animationFrameRef.current);
@@ -229,23 +237,26 @@ export default function BubblePopperPage() {
     if (gameState !== 'playing') return;
 
     if (timeLeft <= 0) {
-      setGameState('over');
-      if (user && userProfileRef) {
-          // Note: score is captured at the time this effect runs
-          setDocumentNonBlocking(userProfileRef, { score: increment(score) }, { merge: true });
-      }
+      endGame();
       return;
     }
     
-    // Timestamp-based timer to prevent lag from re-renders
     const startTime = Date.now();
     const timerId = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      setTimeLeft(Math.max(GAME_DURATION - elapsed, 0));
-    }, 250); // check more frequently for accuracy
+        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+        const newTimeLeft = GAME_DURATION - elapsedSeconds;
+
+        if (newTimeLeft <= 0) {
+            setTimeLeft(0);
+            endGame();
+            clearInterval(timerId);
+        } else {
+            setTimeLeft(newTimeLeft);
+        }
+    }, 250);
 
     return () => clearInterval(timerId);
-  }, [gameState, user, userProfileRef, score, timeLeft]);
+  }, [gameState, timeLeft, endGame]);
 
 
   // --- Canvas Setup & Resize ---
@@ -423,18 +434,31 @@ export default function BubblePopperPage() {
                 )}
               </div>
             )}
-            {gameState === 'playing' && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 text-white font-medium text-lg bg-black/20 px-3 py-1 rounded-full">
-                Time Left: <span className="font-bold">{timeLeft}s</span>
-              </div>
-            )}
+             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-4">
+              {gameState === 'playing' && (
+                <>
+                    <div className="text-white font-medium text-lg bg-black/20 px-3 py-1 rounded-full">
+                        Time Left: <span className="font-bold">{timeLeft}s</span>
+                    </div>
+                     <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <Button
+                            onClick={endGame}
+                            className="rounded-xl py-2 px-5 font-medium text-white bg-accent/80 hover:bg-accent"
+                        >
+                            <StopCircle className="mr-2 h-5 w-5" /> End Game
+                        </Button>
+                    </motion.div>
+                </>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
     </div>
   );
 }
-
-    
-
-    
