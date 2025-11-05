@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { AuthProvider } from '@/context/AuthContext';
 import { Header } from '@/components/layout/Header';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from '@/lib/utils';
+import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'Dopamind – Tap. Play. Reset.',
@@ -30,13 +30,13 @@ export default function RootLayout({
           "min-h-screen bg-background font-body antialiased"
         )}
       >
-        <AuthProvider>
+        <FirebaseClientProvider>
             <div className="relative flex min-h-screen flex-col">
                 <Header />
                 <main className="flex-1">{children}</main>
             </div>
             <Toaster />
-        </AuthProvider>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

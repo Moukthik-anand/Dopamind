@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import { getUserData } from '@/lib/firebase/firestore';
+import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, getDoc, DocumentData } from 'firebase/firestore';
 import { generateDailyChallenge, DailyChallengeOutput } from '@/ai/flows/personalized-daily-challenge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,9 +11,21 @@ import Link from 'next/link';
 import { games } from '@/lib/games';
 
 export function DailyChallenge() {
-  const { user } = useAuth();
+  const { user } = useUser();
+  const firestore = useFirestore();
   const [challenge, setChallenge] = useState<DailyChallengeOutput | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const getUserData = useCallback(async (uid: string): Promise<DocumentData | null> => {
+    if (!uid || !firestore) return null;
+    const userDocRef = doc(firestore, 'users', uid);
+    const userDocSnap = await getDoc(userDocRef);
+    if (userDocSnap.exists()) {
+      return userDocSnap.data();
+    }
+    return null;
+  }, [firestore]);
+
 
   useEffect(() => {
     async function fetchChallenge() {
@@ -22,7 +34,7 @@ export function DailyChallenge() {
         try {
           const userData = await getUserData(user.uid);
           const playHistoryString = userData?.playHistory?.length
-            ? `User has played ${userData.playHistory.length} times. Recent games: ${userData.playHistory.slice(-5).map(p => p.gameId).join(', ')}`
+            ? `User has played ${userData.playHistory.length} times. Recent games: ${userData.playHistory.slice(-5).map((p:any) => p.gameId).join(', ')}`
             : 'No play history available.';
           
           const result = await generateDailyChallenge({ userPlayHistory: playHistoryString });
@@ -39,7 +51,7 @@ export function DailyChallenge() {
     if (user && !challenge) {
         fetchChallenge();
     }
-  }, [user, challenge]);
+  }, [user, challenge, getUserData]);
 
   const suggestedGameDetails = useMemo(() => {
     if (!challenge?.suggestedGame) return null;
