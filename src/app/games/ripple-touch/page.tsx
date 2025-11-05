@@ -55,7 +55,7 @@ export default function RippleTouchPage() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     ctx.globalCompositeOperation = "lighter";
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 3;
 
     for (let i = ripplesRef.current.length - 1; i >= 0; i--) {
       const r = ripplesRef.current[i];
@@ -68,7 +68,7 @@ export default function RippleTouchPage() {
         continue;
       }
       
-      ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha * 0.5})`;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha * 0.8})`;
       ctx.beginPath();
       ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
       ctx.stroke();
