@@ -24,7 +24,6 @@ import type { UserProfile } from '@/lib/types';
 
 
 // --- Constants ---
-const GAME_DURATION = 60; // seconds
 type GameState = 'ready' | 'playing' | 'over';
 
 interface Bubble {
@@ -50,7 +49,6 @@ let bubbleIdCounter = 0;
 export default function BubblePopperPage() {
   const [gameState, setGameState] = useState<GameState>('ready');
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
@@ -204,7 +202,6 @@ export default function BubblePopperPage() {
   // --- Game State Management ---
   const startGame = useCallback(() => {
     setScore(0);
-    setTimeLeft(GAME_DURATION);
     setGameState('playing');
     bubblesRef.current = [];
     particlesRef.current = [];
@@ -224,40 +221,12 @@ export default function BubblePopperPage() {
       cancelAnimationFrame(animationFrameRef.current);
 
     setScore(0);
-    setTimeLeft(GAME_DURATION);
     setGameState('ready');
     bubblesRef.current = [];
     particlesRef.current = [];
 
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, [gameLoop]);
-
-  // --- Game Timer ---
-  useEffect(() => {
-    if (gameState !== 'playing') return;
-
-    if (timeLeft <= 0) {
-      endGame();
-      return;
-    }
-    
-    const startTime = Date.now();
-    const timerId = setInterval(() => {
-        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-        const newTimeLeft = GAME_DURATION - elapsedSeconds;
-
-        if (newTimeLeft <= 0) {
-            setTimeLeft(0);
-            endGame();
-            clearInterval(timerId);
-        } else {
-            setTimeLeft(newTimeLeft);
-        }
-    }, 250);
-
-    return () => clearInterval(timerId);
-  }, [gameState, timeLeft, endGame]);
-
 
   // --- Canvas Setup & Resize ---
   useEffect(() => {
@@ -328,12 +297,6 @@ export default function BubblePopperPage() {
       }
     }
   };
-
-  const handleSignOut = () => {
-    if (auth) {
-      signOut(auth);
-    }
-  };
   
   const displayScore = user ? userProfile?.score ?? '...' : score;
 
@@ -345,34 +308,7 @@ export default function BubblePopperPage() {
         <CardContent className="p-0">
           <div className="relative w-full h-[60vh] max-h-[700px] overflow-hidden">
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 w-full px-4">
-              <div className="flex justify-between items-center text-white">
-                <div className="text-left text-sm min-w-[120px]">
-                  {isUserLoading ? (
-                    <div className="h-8 w-32 bg-white/20 rounded-md animate-pulse" />
-                  ) : user ? (
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">
-                        Hi, {user.displayName?.split(' ')[0]}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-white hover:bg-white/20 h-7 px-2"
-                        onClick={handleSignOut}
-                      >
-                        Logout
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      className="bg-white/20 text-white hover:bg-white/30 h-8"
-                      onClick={handleGoogleSignIn}
-                    >
-                      Login with Google
-                    </Button>
-                  )}
-                </div>
+              <div className="flex justify-center items-center text-white">
                 <div
                   className="font-bold text-2xl"
                   style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}
@@ -388,7 +324,6 @@ export default function BubblePopperPage() {
                     {score}
                   </motion.span>
                 </div>
-                <div className="w-[120px]"></div>
               </div>
             </div>
             <canvas
@@ -408,7 +343,7 @@ export default function BubblePopperPage() {
                       Pop the Bubbles!
                     </h2>
                     <p className="text-white mb-4">
-                      You have {GAME_DURATION} seconds.
+                      Pop as many as you can.
                     </p>
                     <Button onClick={startGame} size="lg">
                       Start Game
@@ -421,7 +356,7 @@ export default function BubblePopperPage() {
                     animate={{ opacity: 1, y: 0 }}
                   >
                     <h2 className="text-3xl font-bold text-white mb-2">
-                      Time&apos;s up!
+                      Game Over!
                     </h2>
                     <p className="text-xl text-white mb-4">
                       You popped {score} bubbles! Your total score is now {displayScore}.
@@ -434,31 +369,27 @@ export default function BubblePopperPage() {
                 )}
               </div>
             )}
-             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-4">
-              {gameState === 'playing' && (
-                <>
-                    <div className="text-white font-medium text-lg bg-black/20 px-3 py-1 rounded-full">
-                        Time Left: <span className="font-bold">{timeLeft}s</span>
-                    </div>
-                     <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <Button
-                            onClick={endGame}
-                            className="rounded-xl py-2 px-5 font-medium text-white bg-accent/80 hover:bg-accent"
-                        >
-                            <StopCircle className="mr-2 h-5 w-5" /> End Game
-                        </Button>
-                    </motion.div>
-                </>
-              )}
-            </div>
           </div>
         </CardContent>
       </Card>
+      <div className="w-full flex justify-center mt-4">
+        {gameState === 'playing' && (
+            <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 10 }}
+            transition={{ duration: 0.3 }}
+            >
+            <Button
+                onClick={endGame}
+                className="rounded-xl py-2 px-5 font-medium text-white bg-accent/80 hover:bg-accent"
+                style={{ backgroundColor: '#b18fe0' }}
+            >
+                <StopCircle className="mr-2 h-5 w-5" /> End Game
+            </Button>
+            </motion.div>
+        )}
+      </div>
     </div>
   );
 }
