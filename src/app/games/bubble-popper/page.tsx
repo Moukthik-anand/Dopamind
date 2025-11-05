@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -53,7 +54,6 @@ export default function BubblePopperPage() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
-  const gameTimerRef = useRef<NodeJS.Timeout>();
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const bubblesRef = useRef<Bubble[]>([]);
@@ -208,22 +208,9 @@ export default function BubblePopperPage() {
     bubblesRef.current = [];
     particlesRef.current = [];
     bubbleIdCounter = 0;
-
-    // Start game timer
-    gameTimerRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(gameTimerRef.current);
-          setGameState('over');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
   }, []);
 
   const resetGame = useCallback(() => {
-    if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     if (animationFrameRef.current)
       cancelAnimationFrame(animationFrameRef.current);
 
@@ -235,6 +222,23 @@ export default function BubblePopperPage() {
 
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, [gameLoop]);
+
+  // --- Game Timer ---
+  useEffect(() => {
+    if (gameState !== 'playing') return;
+
+    if (timeLeft <= 0) {
+      setGameState('over');
+      return;
+    }
+
+    const timerId = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timerId);
+  }, [gameState, timeLeft]);
+
 
   // --- Canvas Setup & Resize ---
   useEffect(() => {
@@ -255,7 +259,6 @@ export default function BubblePopperPage() {
       window.removeEventListener('resize', resizeCanvas);
       if (animationFrameRef.current)
         cancelAnimationFrame(animationFrameRef.current);
-      if (gameTimerRef.current) clearInterval(gameTimerRef.current);
     };
   }, [gameLoop]);
 
