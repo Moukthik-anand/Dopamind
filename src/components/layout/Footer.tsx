@@ -1,4 +1,3 @@
-
 'use client';
 
 import { motion, useScroll, useTransform } from 'framer-motion';
@@ -24,8 +23,8 @@ export function Footer() {
         style={{ opacity }}
         className="w-full py-5"
       >
-        <div className="container flex flex-col items-center justify-center gap-2 text-center">
-            <span className="text-xs font-medium text-muted-foreground/80">
+        <div className="container flex flex-col items-center justify-center gap-2 text-center text-sm text-gray-600 dark:text-gray-400">
+            <span className="text-xs font-medium">
               © 2025 Built by Moukthik Anand
             </span>
             <Button 

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { AppTransitions } from '@/components/AppTransitions';
 import { StartupAnimation } from '@/components/StartupAnimation';
+import { ThemeProvider } from '@/components/ThemeProvider';
 
 export const metadata: Metadata = {
   title: 'Dopamind – Tap. Play. Reset.',
@@ -32,18 +33,25 @@ export default function RootLayout({
           "min-h-screen bg-background font-body antialiased"
         )}
       >
-        <div className="animated-gradient absolute inset-0 z-[-1]" />
-        <FirebaseClientProvider>
-          <StartupAnimation>
-              <div className="relative flex min-h-screen flex-col">
-                  <Header />
-                  <AppTransitions>
-                    <main className="flex-1">{children}</main>
-                  </AppTransitions>
-                  <Footer />
-              </div>
-          </StartupAnimation>
-        </FirebaseClientProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <div className="animated-gradient absolute inset-0 z-[-1]" />
+          <FirebaseClientProvider>
+            <StartupAnimation>
+                <div className="relative flex min-h-screen flex-col">
+                    <Header />
+                    <AppTransitions>
+                      <main className="flex-1">{children}</main>
+                    </AppTransitions>
+                    <Footer />
+                </div>
+            </StartupAnimation>
+          </FirebaseClientProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
