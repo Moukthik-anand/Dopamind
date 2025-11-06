@@ -71,8 +71,8 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/30 backdrop-blur-lg supports-[backdrop-filter]:bg-background/30">
-      <div className="container flex h-16 items-center justify-between">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/30 backdrop-blur-lg supports-[backdrop-filter]:bg-background/30 overflow-visible">
+      <div className="container flex h-16 items-center justify-between gap-2 sm:gap-4 flex-wrap">
         <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
           <BrainCircuit className="h-6 w-6 text-primary" />
            <motion.span
@@ -90,15 +90,15 @@ export function Header() {
             Dopamind
           </motion.span>
         </Link>
-        <nav className="flex-grow flex justify-center items-center gap-4 text-sm font-medium">
-          <Button variant="ghost" asChild>
+        <nav className="flex-grow flex justify-center items-center">
+           <Button variant="ghost" asChild className="min-w-fit max-w-[150px] flex-shrink text-xs sm:text-sm">
             <Link href={randomGamePath || '/'}>
-              <Dices className="mr-2" />
+              <Dices className="mr-1 sm:mr-2" />
               Play Random
             </Link>
           </Button>
         </nav>
-        <div className="flex items-center justify-end space-x-2 md:space-x-4 flex-shrink-0">
+        <div className="flex items-center justify-end space-x-2 flex-shrink-0">
           {isUserLoading ? (
             <div className="flex items-center gap-4">
               <div className="h-8 w-16 bg-muted rounded-full animate-pulse" />
@@ -114,7 +114,7 @@ export function Header() {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="relative h-9 w-9 rounded-full"
+                    className="relative h-9 w-9 rounded-full flex-shrink-0"
                   >
                     <Avatar className="h-9 w-9">
                       <AvatarImage
@@ -154,8 +154,8 @@ export function Header() {
               </DropdownMenu>
             </>
           ) : (
-            <Button onClick={handleGoogleSignIn}>
-              <UserIcon className="mr-2 h-4 w-4" />
+            <Button onClick={handleGoogleSignIn} className="flex-shrink-0 text-xs sm:text-sm">
+              <UserIcon className="mr-1 sm:mr-2 h-4 w-4" />
               Login
             </Button>
           )}
