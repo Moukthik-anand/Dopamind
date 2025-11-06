@@ -41,7 +41,7 @@ const MAX_LIVES = 3;
 const XP_PER_CALM = 10;
 const XP_PENALTY_PER_STRESS = -15;
 
-const BASE_CALM_SPEED = 2.0; // 2x faster than previous versions
+const BASE_CALM_SPEED = 4.0; // 2x faster than previous versions
 const STRESS_SPEED_MULTIPLIER = 3.0; // Insane speed mode
 
 let orbIdCounter = 0;
@@ -362,5 +362,7 @@ export default function CatchTheCalmPage() {
     </div>
   );
 }
+
+    
 
     
