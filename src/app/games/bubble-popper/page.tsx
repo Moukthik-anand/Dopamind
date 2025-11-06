@@ -25,7 +25,7 @@ import type { UserProfile } from '@/lib/types';
 
 // --- Constants ---
 type GameState = 'ready' | 'playing' | 'over';
-const GAME_DURATION_MS = 60000; // 60 seconds
+const GAME_DURATION_S = 60; // 60 seconds
 
 interface Bubble {
   id: number;
@@ -50,7 +50,7 @@ let bubbleIdCounter = 0;
 export default function BubblePopperPage() {
   const [gameState, setGameState] = useState<GameState>('ready');
   const [score, setScore] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(GAME_DURATION_MS / 1000);
+  const [timeRemaining, setTimeRemaining] = useState(GAME_DURATION_S);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
@@ -60,8 +60,8 @@ export default function BubblePopperPage() {
   const particlesRef = useRef<Particle[]>([]);
   
   // Timer Refs
-  const timerRafRef = useRef<number | null>(null);
-  const gameStartTimeRef = useRef<number>(0);
+  const timerRafIdRef = useRef<number | null>(null);
+  const gameStartTimeRef = useRef<number | null>(null);
 
   // --- Firebase State ---
   const auth = useAuth();
@@ -119,7 +119,7 @@ export default function BubblePopperPage() {
     const o = p.createOscillator();
     const g = p.createGain();
     o.connect(g);
-    g.connect(p.destination);
+g.connect(p.destination);
     o.type = 'triangle';
     o.frequency.setValueAtTime(800 + Math.random() * 200, p.currentTime);
     g.gain.setValueAtTime(0.3, p.currentTime);
@@ -206,9 +206,9 @@ export default function BubblePopperPage() {
   
   // --- Game State & Timer Management ---
   const stopTimer = useCallback(() => {
-    if (timerRafRef.current) {
-        cancelAnimationFrame(timerRafRef.current);
-        timerRafRef.current = null;
+    if (timerRafIdRef.current) {
+        cancelAnimationFrame(timerRafIdRef.current);
+        timerRafIdRef.current = null;
     }
   }, []);
 
@@ -230,20 +230,22 @@ export default function BubblePopperPage() {
     gameStartTimeRef.current = performance.now();
 
     const timerLoop = () => {
-      const elapsed = performance.now() - gameStartTimeRef.current;
-      const remaining = Math.max(0, GAME_DURATION_MS - elapsed);
-      const newTime = Math.ceil(remaining / 1000);
+      if (!gameStartTimeRef.current) return;
+
+      const elapsed = (performance.now() - gameStartTimeRef.current) / 1000;
+      const remaining = Math.max(0, GAME_DURATION_S - elapsed);
+      const newTime = Math.ceil(remaining);
       
-      setTimeRemaining(prev => newTime < prev ? newTime : prev);
+      setTimeRemaining(newTime);
 
       if (remaining <= 0) {
         endGame();
       } else {
-        timerRafRef.current = requestAnimationFrame(timerLoop);
+        timerRafIdRef.current = requestAnimationFrame(timerLoop);
       }
     };
 
-    timerRafRef.current = requestAnimationFrame(timerLoop);
+    timerRafIdRef.current = requestAnimationFrame(timerLoop);
 
     return () => stopTimer();
   }, [gameState, endGame, stopTimer]);
@@ -251,7 +253,7 @@ export default function BubblePopperPage() {
 
   const startGame = useCallback(() => {
     setScore(0);
-    setTimeRemaining(GAME_DURATION_MS / 1000);
+    setTimeRemaining(GAME_DURATION_S);
     setGameState('playing');
     bubblesRef.current = [];
     particlesRef.current = [];
@@ -264,7 +266,7 @@ export default function BubblePopperPage() {
       cancelAnimationFrame(animationFrameRef.current);
     
     setScore(0);
-    setTimeRemaining(GAME_DURATION_MS / 1000)
+    setTimeRemaining(GAME_DURATION_S)
     setGameState('ready');
     bubblesRef.current = [];
     particlesRef.current = [];
@@ -379,7 +381,7 @@ export default function BubblePopperPage() {
                       Pop the Bubbles!
                     </h2>
                     <p className="text-white mb-4">
-                      You have {GAME_DURATION_MS / 1000} seconds. Go!
+                      You have {GAME_DURATION_S} seconds. Go!
                     </p>
                     <Button onClick={startGame} size="lg">
                       Start Game
@@ -431,4 +433,5 @@ export default function BubblePopperPage() {
   );
 }
 
+    
     
