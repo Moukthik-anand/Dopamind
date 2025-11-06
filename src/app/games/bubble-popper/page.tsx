@@ -25,7 +25,7 @@ import type { UserProfile } from '@/lib/types';
 
 // --- Constants ---
 type GameState = 'ready' | 'playing' | 'over';
-const GAME_DURATION_S = 60; // 60 seconds
+const POPS_TO_WIN = 50;
 
 interface Bubble {
   id: number;
@@ -49,8 +49,8 @@ let bubbleIdCounter = 0;
 
 export default function BubblePopperPage() {
   const [gameState, setGameState] = useState<GameState>('ready');
-  const [score, setScore] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(GAME_DURATION_S);
+  const [popCount, setPopCount] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
@@ -210,16 +210,21 @@ g.connect(p.destination);
         cancelAnimationFrame(timerRafIdRef.current);
         timerRafIdRef.current = null;
     }
+    gameStartTimeRef.current = null;
   }, []);
 
   const endGame = useCallback(() => {
     if (gameState !== 'playing') return; // Prevent multiple calls
     setGameState('over');
     stopTimer();
-    if (user && userProfileRef && score > 0) {
-      setDocumentNonBlocking(userProfileRef, { score: increment(score) }, { merge: true });
+
+    if(user && userProfileRef) {
+        const finalTime = (performance.now() - (gameStartTimeRef.current ?? performance.now())) / 1000;
+        const scoreGained = Math.max(10, Math.round(100 - finalTime));
+        setElapsedTime(finalTime);
+        setDocumentNonBlocking(userProfileRef, { score: increment(scoreGained) }, { merge: true });
     }
-  }, [gameState, user, userProfileRef, score, stopTimer]);
+  }, [gameState, user, userProfileRef, stopTimer]);
 
   useEffect(() => {
     if (gameState !== 'playing') {
@@ -227,33 +232,26 @@ g.connect(p.destination);
       return;
     }
 
-    gameStartTimeRef.current = performance.now();
-
     const timerLoop = () => {
       if (!gameStartTimeRef.current) return;
-
       const elapsed = (performance.now() - gameStartTimeRef.current) / 1000;
-      const remaining = Math.max(0, GAME_DURATION_S - elapsed);
-      const newTime = Math.ceil(remaining);
-      
-      setTimeRemaining(newTime);
-
-      if (remaining <= 0) {
-        endGame();
-      } else {
-        timerRafIdRef.current = requestAnimationFrame(timerLoop);
-      }
+      setElapsedTime(elapsed);
+      timerRafIdRef.current = requestAnimationFrame(timerLoop);
     };
-
-    timerRafIdRef.current = requestAnimationFrame(timerLoop);
+    
+    if (popCount > 0) {
+        if(!timerRafIdRef.current) {
+            timerRafIdRef.current = requestAnimationFrame(timerLoop);
+        }
+    }
 
     return () => stopTimer();
-  }, [gameState, endGame, stopTimer]);
+  }, [gameState, popCount, stopTimer]);
 
 
   const startGame = useCallback(() => {
-    setScore(0);
-    setTimeRemaining(GAME_DURATION_S);
+    setPopCount(0);
+    setElapsedTime(0);
     setGameState('playing');
     bubblesRef.current = [];
     particlesRef.current = [];
@@ -265,8 +263,8 @@ g.connect(p.destination);
     if (animationFrameRef.current)
       cancelAnimationFrame(animationFrameRef.current);
     
-    setScore(0);
-    setTimeRemaining(GAME_DURATION_S)
+    setPopCount(0);
+    setElapsedTime(0);
     setGameState('ready');
     bubblesRef.current = [];
     particlesRef.current = [];
@@ -321,17 +319,28 @@ g.connect(p.destination);
           createParticles(b.x, b.y);
           bubblesRef.current.splice(i, 1);
           playPopSound();
-          setScore((prev) => prev + 1);
+          
+          if (popCount === 0) {
+            gameStartTimeRef.current = performance.now();
+          }
+
+          const newPopCount = popCount + 1;
+          setPopCount(newPopCount);
+
+          if (newPopCount >= POPS_TO_WIN) {
+            endGame();
+          }
 
           if (navigator.vibrate) navigator.vibrate(50);
           break;
         }
       }
     },
-    [gameState, playPopSound, createParticles]
+    [gameState, playPopSound, createParticles, popCount, endGame]
   );
 
-  const displayScore = user ? userProfile?.score ?? '...' : score;
+  const displayScore = user ? userProfile?.score ?? '...' : 0;
+  const scoreGained = Math.max(10, Math.round(100 - elapsedTime));
 
 
   return (
@@ -345,15 +354,15 @@ g.connect(p.destination);
                   className="font-bold text-lg sm:text-xl p-2 rounded-lg bg-black/20"
                   style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}
                 >
-                  Score:{' '}
+                  Pops:{' '}
                    <motion.span
-                    key={score}
+                    key={popCount}
                     initial={{ scale: 1.2, opacity: 0.5 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="inline-block w-12 text-left"
+                    className="inline-block w-16 text-left"
                   >
-                    {score}
+                    {popCount}/{POPS_TO_WIN}
                   </motion.span>
                 </div>
                 <div
@@ -361,7 +370,7 @@ g.connect(p.destination);
                   style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}
                 >
                     <TimerIcon className="mr-2 h-5 w-5"/>
-                    <span>{timeRemaining}s</span>
+                    <span>{elapsedTime.toFixed(2)}s</span>
                 </div>
             </div>
             <canvas
@@ -378,13 +387,13 @@ g.connect(p.destination);
                     animate={{ opacity: 1, y: 0 }}
                   >
                     <h2 className="text-3xl font-bold text-white mb-2">
-                      Pop the Bubbles!
+                      Fastest 50 Pops!
                     </h2>
                     <p className="text-white mb-4">
-                      You have {GAME_DURATION_S} seconds. Go!
+                      Pop 50 bubbles as quickly as you can.
                     </p>
                     <Button onClick={startGame} size="lg">
-                      Start Game
+                      Start Challenge
                     </Button>
                   </motion.div>
                 )}
@@ -395,11 +404,12 @@ g.connect(p.destination);
                     className="text-center px-4"
                   >
                     <h2 className="text-3xl font-bold text-white mb-2">
-                      Time's Up!
+                      Challenge Complete!
                     </h2>
-                    <p className="text-xl text-white mb-4">
-                      You popped {score} bubbles! Your total score is now {displayScore}.
+                    <p className="text-xl text-white mb-2">
+                      You popped 50 bubbles in <strong>{elapsedTime.toFixed(2)}</strong> seconds!
                     </p>
+                    <p className="text-lg text-white mb-4">You gained {scoreGained} score. Your total score is now {displayScore}.</p>
                     <Button onClick={resetGame} size="lg">
                       <RefreshCw className="mr-2 h-4 w-4" />
                       Play Again
@@ -433,5 +443,4 @@ g.connect(p.destination);
   );
 }
 
-    
     
