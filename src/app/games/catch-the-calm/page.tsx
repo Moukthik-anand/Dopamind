@@ -91,7 +91,7 @@ export default function CatchTheCalmPage() {
     // Spawn new orbs
     if (gameState === 'playing' && Math.random() < 0.06 && orbsRef.current.length < 25) {
       const isStress = Math.random() < 0.35; // 35% chance for a stress orb
-      const baseSpeed = 2 + Math.random() * 2;
+      const baseSpeed = 2.5 + Math.random() * 2;
       const speed = isStress ? baseSpeed * 1.5 : baseSpeed;
 
       orbsRef.current.push({
@@ -219,9 +219,23 @@ export default function CatchTheCalmPage() {
         }
     };
 
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+      } else {
+        // Only resume if we are in the 'playing' state
+        if (gameState === 'playing') {
+          animationFrameRef.current = requestAnimationFrame(gameLoop);
+        }
+      }
+    };
+
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('touchmove', handleTouchMove, { passive: true });
     window.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     animationFrameRef.current = requestAnimationFrame(gameLoop);
 
@@ -230,9 +244,10 @@ export default function CatchTheCalmPage() {
       canvas.removeEventListener('mousemove', handleMouseMove);
       canvas.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [gameLoop]);
+  }, [gameLoop, gameState]);
 
   return (
     <div className="flex flex-col items-center gap-4">
