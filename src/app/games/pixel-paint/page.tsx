@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -31,11 +31,11 @@ export default function PixelPaintPage() {
   const [currentColor, setCurrentColor] = useState(COLORS[0]);
   const [isErasing, setIsErasing] = useState(false);
   
-  const getCanvasContext = () => {
+  const getCanvasContext = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return null;
     return canvas.getContext('2d');
-  };
+  }, []);
 
   useEffect(() => {
     const savedColor = localStorage.getItem(LOCAL_STORAGE_KEY_COLOR);
@@ -47,7 +47,7 @@ export default function PixelPaintPage() {
     if (!ctx) return;
     loadCanvas();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [getCanvasContext]);
 
   useEffect(() => {
     const ctx = getCanvasContext();
@@ -61,51 +61,93 @@ export default function PixelPaintPage() {
       ctx.strokeStyle = currentColor;
       ctx.lineWidth = 5;
       ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
     }
-  }, [currentColor, isErasing]);
+  }, [currentColor, isErasing, getCanvasContext]);
   
-  const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
+    const getCoordinates = useCallback((event: MouseEvent | TouchEvent) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    if ('touches' in event) {
+        if(event.touches[0]){
+            return {
+                x: event.touches[0].clientX - rect.left,
+                y: event.touches[0].clientY - rect.top,
+            };
+        }
+        return null;
+    }
+    return {
+      x: (event as MouseEvent).clientX - rect.left,
+      y: (event as MouseEvent).clientY - rect.top,
+    };
+  }, []);
+
+  const startDrawing = useCallback((x: number, y: number) => {
     const ctx = getCanvasContext();
     if (!ctx) return;
 
-    const { offsetX, offsetY } = getCoordinates(event);
     ctx.beginPath();
-    ctx.moveTo(offsetX, offsetY);
+    ctx.moveTo(x, y);
     setIsDrawing(true);
-  };
+  }, [getCanvasContext]);
 
-  const draw = (event: React.MouseEvent | React.TouchEvent) => {
+
+  const draw = useCallback((x: number, y: number) => {
     if (!isDrawing) return;
     const ctx = getCanvasContext();
     if (!ctx) return;
-
-    const { offsetX, offsetY } = getCoordinates(event);
-    ctx.lineTo(offsetX, offsetY);
+    
+    ctx.lineTo(x, y);
     ctx.stroke();
-  };
+  }, [isDrawing, getCanvasContext]);
 
-  const stopDrawing = () => {
+  const stopDrawing = useCallback(() => {
     const ctx = getCanvasContext();
     if (!ctx) return;
     ctx.closePath();
     setIsDrawing(false);
     saveCanvas();
-  };
+  }, [getCanvasContext]);
 
-  const getCoordinates = (event: React.MouseEvent | React.TouchEvent) => {
-    const canvas = canvasRef.current!;
-    const rect = canvas.getBoundingClientRect();
-    if ('touches' in event.nativeEvent) {
-      return {
-        offsetX: event.nativeEvent.touches[0].clientX - rect.left,
-        offsetY: event.nativeEvent.touches[0].clientY - rect.top,
-      };
+
+  const handleMouseDown = useCallback((event: React.MouseEvent) => {
+    const coords = getCoordinates(event.nativeEvent);
+    if (coords) {
+        startDrawing(coords.x, coords.y);
     }
-    return {
-      offsetX: event.nativeEvent.offsetX,
-      offsetY: event.nativeEvent.offsetY,
-    };
-  };
+  }, [getCoordinates, startDrawing]);
+
+  const handleMouseMove = useCallback((event: React.MouseEvent) => {
+    if (!isDrawing) return;
+    const coords = getCoordinates(event.nativeEvent);
+    if (coords) {
+        draw(coords.x, coords.y);
+    }
+  }, [isDrawing, getCoordinates, draw]);
+
+  const handleTouchStart = useCallback((event: React.TouchEvent) => {
+    event.preventDefault();
+    const coords = getCoordinates(event.nativeEvent);
+    if (coords) {
+        startDrawing(coords.x, coords.y);
+    }
+  }, [getCoordinates, startDrawing]);
+
+  const handleTouchMove = useCallback((event: React.TouchEvent) => {
+    event.preventDefault();
+    if (!isDrawing) return;
+    const coords = getCoordinates(event.nativeEvent);
+    if (coords) {
+        draw(coords.x, coords.y);
+    }
+  }, [isDrawing, getCoordinates, draw]);
+
+  const handleTouchEnd = useCallback((event: React.TouchEvent) => {
+    event.preventDefault();
+    stopDrawing();
+  }, [stopDrawing]);
+
 
   const saveCanvas = () => {
     const canvas = canvasRef.current;
@@ -155,14 +197,14 @@ export default function PixelPaintPage() {
               ref={canvasRef}
               width={CANVAS_SIZE}
               height={CANVAS_SIZE}
-              className="rounded-lg cursor-crosshair bg-white dark:bg-muted"
-              onMouseDown={startDrawing}
-              onMouseMove={draw}
+              className="rounded-lg cursor-crosshair bg-white dark:bg-muted touch-none select-none"
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
               onMouseUp={stopDrawing}
               onMouseLeave={stopDrawing}
-              onTouchStart={startDrawing}
-              onTouchMove={draw}
-              onTouchEnd={stopDrawing}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
             />
           </div>
           <div className="flex flex-col items-center gap-4 pt-2 w-full">
@@ -223,5 +265,7 @@ export default function PixelPaintPage() {
     </div>
   );
 }
+
+    
 
     
