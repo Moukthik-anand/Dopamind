@@ -346,7 +346,7 @@ export default function CatchTheCalmPage() {
                     className="flex flex-col items-center text-center"
                    >
                     <h2 className="text-3xl font-bold text-white mb-2">
-                        {lives <= 0 ? '💔 Game Over' : 'Game Ended!'}
+                        {lives <= 0 ? 'Game Over' : 'Game Ended!'}
                     </h2>
                     <p className="text-xl text-white mb-4">
                         {lives <= 0 ? "You lost all your lives!" : `You gained ${xp} calm XP!`}
@@ -378,5 +378,3 @@ export default function CatchTheCalmPage() {
     </div>
   );
 }
-
-    
