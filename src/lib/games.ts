@@ -55,6 +55,3 @@ export const games: Game[] = [
     path: '/games/catch-the-calm',
   }
 ];
-
-    
-    
