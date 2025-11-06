@@ -17,7 +17,7 @@ export const games: Game[] = [
     title: 'Color Fade',
     description: 'Tap when the color matches. A test of timing.',
     icon: Palette,
-    path: '/games/bubble-popper',
+    path: '/games/color-fade',
   },
   {
     id: 'breathe-with-me',
@@ -56,4 +56,5 @@ export const games: Game[] = [
   }
 ];
 
+    
     

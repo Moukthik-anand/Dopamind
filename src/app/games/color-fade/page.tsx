@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,21 +14,21 @@ import { cn } from '@/lib/utils';
 import * as Tone from 'tone';
 
 const TOTAL_ROUNDS = 10;
+const FADE_DURATION_MS = 1250;
 
 const COLORS = [
-    { name: 'Lavender', from: '#E6E6FA', to: '#D8BFD8' },
+    { name: 'Lavender', from: '#C8A2C8', to: '#E6E6FA' },
     { name: 'Sky Blue', from: '#87CEEB', to: '#ADD8E6' },
     { name: 'Mint', from: '#98FF98', to: '#BDFCC9' },
     { name: 'Peach', from: '#FFDAB9', to: '#FFC0CB' },
-    { name: 'Lilac', from: '#C8A2C8', to: '#B282B2' },
+    { name: 'Lilac', from: '#D8BFD8', to: '#E8DAEF' },
+    { name: 'Soft Teal', from: '#99E6E6', to: '#B2DFDB' },
     { name: 'Coral', from: '#FF7F50', to: '#FF6347' },
-    { name: 'Seafoam', from: '#2E8B57', to: '#3CB371' },
-    { name: 'Rose', from: '#FFC0CB', to: '#FFB6C1' },
-    { name: 'Gold', from: '#FFD700', to: '#F0E68C' },
+    { name: 'Ivory', from: '#FFFFF0', to: '#F5F5DC' },
+    { name: 'Pale Rose', from: '#F8C8DC', to: '#FFD1DC' },
     { name: 'Periwinkle', from: '#CCCCFF', to: '#B0B0FF' },
 ];
 
-// Fisher-Yates shuffle
 const shuffleArray = (array: any[]) => {
   let currentIndex = array.length, randomIndex;
   while (currentIndex !== 0) {
@@ -39,16 +39,14 @@ const shuffleArray = (array: any[]) => {
   return array;
 };
 
-
 export default function ColorFadePage() {
   const [gameState, setGameState] = useState<'ready' | 'playing' | 'over'>('ready');
   const [correctMatches, setCorrectMatches] = useState(0);
   const [xp, setXp] = useState(0);
   const [feedback, setFeedback] = useState<{ type: 'correct' | 'incorrect' | null, x: number, y: number, key: number }>({ type: null, x: 0, y: 0, key: 0 });
-  const [shuffledColors, setShuffledColors] = useState(shuffleArray([...COLORS]));
+  const [shuffledColors, setShuffledColors] = useState(() => shuffleArray([...COLORS]));
   const [round, setRound] = useState(0);
-  
-  const [targetColorIndex, setTargetColorIndex] = useState(0);
+  const [targetColor, setTargetColor] = useState(shuffledColors[0]);
 
   const { user } = useUser();
   const firestore = useFirestore();
@@ -60,10 +58,13 @@ export default function ColorFadePage() {
   const synthRef = useRef<{ correct: Tone.Synth, incorrect: Tone.Synth } | null>(null);
 
   useEffect(() => {
-    synthRef.current = {
-      correct: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 } }).toDestination(),
-      incorrect: new Tone.Synth({ oscillator: { type: "square" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination()
+    const initAudio = () => {
+        synthRef.current = {
+            correct: new Tone.Synth({ oscillator: { type: "triangle" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 } }).toDestination(),
+            incorrect: new Tone.Synth({ oscillator: { type: "square" }, envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 } }).toDestination()
+        };
     };
+    initAudio();
     return () => {
       synthRef.current?.correct.dispose();
       synthRef.current?.incorrect.dispose();
@@ -82,14 +83,15 @@ export default function ColorFadePage() {
   };
   
   const getNextTarget = useCallback(() => {
-     setTargetColorIndex(Math.floor(Math.random() * shuffledColors.length));
-  }, [shuffledColors.length]);
-  
+     const nextTargetIndex = Math.floor(Math.random() * shuffledColors.length);
+     setTargetColor(shuffledColors[nextTargetIndex]);
+  }, [shuffledColors]);
 
   const handleTap = (e: React.MouseEvent<HTMLDivElement>) => {
     if (gameState !== 'playing') return;
 
-    const isMatch = round % shuffledColors.length === targetColorIndex;
+    const currentColor = shuffledColors[round % shuffledColors.length];
+    const isMatch = currentColor.name === targetColor.name;
     playSound(isMatch);
     
     if (isMatch) {
@@ -113,8 +115,9 @@ export default function ColorFadePage() {
     setCorrectMatches(0);
     setRound(0);
     setXp(0);
-    setShuffledColors(shuffleArray([...COLORS]));
-    getNextTarget();
+    const newShuffledColors = shuffleArray([...COLORS]);
+    setShuffledColors(newShuffledColors);
+    setTargetColor(newShuffledColors[Math.floor(Math.random() * newShuffledColors.length)]);
   };
   
   const endGame = useCallback(() => {
@@ -124,25 +127,21 @@ export default function ColorFadePage() {
     }
   }, [userProfileRef, xp]);
 
-
   useEffect(() => {
+    let timer: NodeJS.Timeout;
     if (gameState === 'playing') {
       if (correctMatches >= TOTAL_ROUNDS) {
         endGame();
-        return;
+      } else {
+        timer = setTimeout(() => {
+          setRound(prev => prev + 1);
+        }, FADE_DURATION_MS);
       }
-
-      const timer = setTimeout(() => {
-        setRound(prev => prev + 1);
-      }, 1250); // 1.25 seconds per color
-
-      return () => clearTimeout(timer);
     }
+    return () => clearTimeout(timer);
   }, [gameState, round, correctMatches, endGame]);
   
   const currentColor = shuffledColors[round % shuffledColors.length];
-  const targetColor = shuffledColors[targetColorIndex];
-
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -165,7 +164,7 @@ export default function ColorFadePage() {
                   backgroundImage: `linear-gradient(45deg, ${currentColor.from}, ${currentColor.to})`,
                 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.6, ease: 'easeInOut' }}
+                transition={{ duration: FADE_DURATION_MS / 1000, ease: 'easeInOut' }}
               />
             </AnimatePresence>
 
