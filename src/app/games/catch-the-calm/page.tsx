@@ -5,11 +5,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw, StopCircle, HeartCrack } from 'lucide-react';
+import { RefreshCw, StopCircle, Heart, ArrowLeft } from 'lucide-react';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import * as Tone from 'tone';
+import Link from 'next/link';
 
 // --- Types and Constants ---
 type GameState = 'ready' | 'playing' | 'over';
@@ -18,17 +19,11 @@ interface Orb {
   id: number;
   x: number;
   y: number;
+  vx: number;
   r: number;
-  speed: number;
+  speedY: number;
   color: string;
   isStress: boolean;
-}
-
-interface Player {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
 }
 
 interface FloatingText {
@@ -42,12 +37,12 @@ interface FloatingText {
 
 const CALM_ORB_COLORS = ['#a5f3fc', '#c7d2fe', '#bbf7d0'];
 const STRESS_ORB_COLOR = '#f87171';
-const MAX_STRESS_HITS = 10;
+const MAX_LIVES = 3;
 const XP_PER_CALM = 10;
-const XP_PENALTY_PER_STRESS = -50;
+const XP_PENALTY_PER_STRESS = -15;
 
-const STRESS_SPAWN_CHANCE = 0.50; // Increased from 0.35
-const STRESS_SPEED_MULTIPLIER = 1.8; // Increased from 1.5
+const BASE_CALM_SPEED = 1.5;
+const STRESS_SPEED_MULTIPLIER = 2.3;
 
 let orbIdCounter = 0;
 let textIdCounter = 0;
@@ -55,15 +50,20 @@ let textIdCounter = 0;
 export default function CatchTheCalmPage() {
   const [gameState, setGameState] = useState<GameState>('ready');
   const [xp, setXp] = useState(0);
-  const [stressHits, setStressHits] = useState(0);
+  const [lives, setLives] = useState(MAX_LIVES);
+  const [calmCollected, setCalmCollected] = useState(0);
+  const [hitFlash, setHitFlash] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const orbsRef = useRef<Orb[]>([]);
   const floatingTextsRef = useRef<FloatingText[]>([]);
-  const playerRef = useRef<Player>({ x: 0, y: 0, width: 90, height: 15 });
+  const playerRef = useRef<{ x: number; y: number; width: number; height: number; }>({ x: 0, y: 0, width: 90, height: 15 });
+  const lastCalmSpawn = useRef(0);
+  const nextCalmSpawnInterval = useRef(1200 + Math.random() * 300);
+  const lastStressSpawn = useRef(0);
+  const nextStressSpawnInterval = useRef(350 + Math.random() * 200);
   
-  // Firebase
   const { user } = useUser();
   const firestore = useFirestore();
   const userProfileRef = useMemoFirebase(() => {
@@ -71,22 +71,31 @@ export default function CatchTheCalmPage() {
     return doc(firestore, `users/${user.uid}`);
   }, [user, firestore]);
   
-  // Sound synthesizers
-  const synthRef = useRef<{ calm: Tone.Synth, stress: Tone.Synth } | null>(null);
+  const synthRef = useRef<{ calm: Tone.Synth, stress: Tone.Synth, gameOver: Tone.Synth } | null>(null);
 
-  // --- Sound Initialization ---
   useEffect(() => {
     synthRef.current = {
       calm: new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 } }).toDestination(),
-      stress: new Tone.Synth({ oscillator: { type: "square" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 } }).toDestination()
+      stress: new Tone.Synth({ oscillator: { type: "square" }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 } }).toDestination(),
+      gameOver: new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.1, decay: 0.5, sustain: 0.2, release: 0.5 } }).toDestination()
     };
     return () => {
       synthRef.current?.calm.dispose();
       synthRef.current?.stress.dispose();
+      synthRef.current?.gameOver.dispose();
     }
   }, []);
 
-  // --- Scroll Lock ---
+  const playSound = (sound: 'calm' | 'stress' | 'gameOver') => {
+    if (Tone.context.state !== 'running') {
+      Tone.context.resume();
+    }
+    const now = Tone.now();
+    if (sound === 'calm') synthRef.current?.calm.triggerAttackRelease("C5", "8n", now);
+    if (sound === 'stress') synthRef.current?.stress.triggerAttackRelease("C2", "8n", now);
+    if (sound === 'gameOver') synthRef.current?.gameOver.triggerAttackRelease("C3", "2n", now);
+  };
+
   useEffect(() => {
     const originalStyle = document.body.style.overflow;
     if (gameState === 'playing') {
@@ -99,58 +108,64 @@ export default function CatchTheCalmPage() {
     };
   }, [gameState]);
 
-
-  const playSound = (isStress: boolean) => {
-    if (Tone.context.state !== 'running') {
-      Tone.context.resume();
-    }
-    if (isStress) {
-      synthRef.current?.stress.triggerAttackRelease("C2", "8n");
-    } else {
-      synthRef.current?.calm.triggerAttackRelease("C5", "8n");
-    }
-  };
-
   const createFloatingText = (x: number, y: number, text: string, color: string) => {
-    floatingTextsRef.current.push({
-      id: textIdCounter++,
-      x,
-      y,
-      text,
-      alpha: 1,
-      color,
-    });
+    floatingTextsRef.current.push({ id: textIdCounter++, x, y, text, alpha: 1, color });
   };
+  
+  const getDifficultyMultiplier = useCallback(() => 1 + Math.floor(calmCollected / 20) * 0.05, [calmCollected]);
 
-  // --- Game Loop ---
-  const gameLoop = useCallback(() => {
+  const gameLoop = useCallback((timestamp: number) => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
-    if (!ctx || !canvas) return;
+    if (!ctx || !canvas || gameState !== 'playing') {
+      animationFrameRef.current = requestAnimationFrame(gameLoop);
+      return;
+    }
+    
+    const difficulty = getDifficultyMultiplier();
+
+    // --- Orb Spawning ---
+    if (timestamp - lastCalmSpawn.current > nextCalmSpawnInterval.current) {
+        orbsRef.current.push({
+            id: orbIdCounter++,
+            x: Math.random() * canvas.width,
+            y: -20,
+            vx: 0,
+            r: 10,
+            speedY: BASE_CALM_SPEED,
+            color: CALM_ORB_COLORS[Math.floor(Math.random() * CALM_ORB_COLORS.length)],
+            isStress: false,
+        });
+        lastCalmSpawn.current = timestamp;
+        nextCalmSpawnInterval.current = (1200 + Math.random() * 300) / difficulty;
+    }
+    
+    if (timestamp - lastStressSpawn.current > nextStressSpawnInterval.current) {
+        const calmRadius = 10;
+        const stressRadius = calmRadius * (0.4 + Math.random() * 0.9);
+        orbsRef.current.push({
+            id: orbIdCounter++,
+            x: Math.random() * canvas.width,
+            y: -20,
+            vx: (Math.random() - 0.5) * 2, // -1 to 1
+            r: stressRadius,
+            speedY: BASE_CALM_SPEED * STRESS_SPEED_MULTIPLIER * difficulty,
+            color: STRESS_ORB_COLOR,
+            isStress: true,
+        });
+        lastStressSpawn.current = timestamp;
+        nextStressSpawnInterval.current = (350 + Math.random() * 200) / difficulty;
+    }
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Spawn new orbs
-    if (gameState === 'playing' && Math.random() < 0.06 && orbsRef.current.length < 25) {
-      const isStress = Math.random() < STRESS_SPAWN_CHANCE;
-      const baseSpeed = 2.5 + Math.random() * 2;
-      const speed = isStress ? baseSpeed * STRESS_SPEED_MULTIPLIER : baseSpeed;
-
-      orbsRef.current.push({
-        id: orbIdCounter++,
-        x: Math.random() * canvas.width,
-        y: -20,
-        r: isStress ? 12 + Math.random() * 3 : 10,
-        speed: speed,
-        color: isStress ? STRESS_ORB_COLOR : CALM_ORB_COLORS[Math.floor(Math.random() * CALM_ORB_COLORS.length)],
-        isStress,
-      });
-    }
-
-    // Draw and update orbs
+    // --- Update & Draw Orbs ---
     for (let i = orbsRef.current.length - 1; i >= 0; i--) {
       const orb = orbsRef.current[i];
-      orb.y += orb.speed;
+      orb.y += orb.speedY;
+      orb.x += orb.vx;
+      
+      if(orb.x < orb.r || orb.x > canvas.width - orb.r) orb.vx *= -1;
 
       // Collision with player
       if (
@@ -159,58 +174,55 @@ export default function CatchTheCalmPage() {
         orb.x > playerRef.current.x &&
         orb.x < playerRef.current.x + playerRef.current.width
       ) {
-        playSound(orb.isStress);
         if (orb.isStress) {
+          playSound('stress');
           setXp(prev => prev + XP_PENALTY_PER_STRESS);
-          setStressHits(prev => prev + 1);
+          setLives(prev => prev - 1);
           createFloatingText(orb.x, orb.y, `${XP_PENALTY_PER_STRESS} XP`, '#fca5a5');
+          setHitFlash(true);
+          setTimeout(() => setHitFlash(false), 150);
         } else {
+          playSound('calm');
           setXp(prev => prev + XP_PER_CALM);
+          setCalmCollected(prev => prev + 1);
           createFloatingText(orb.x, orb.y, `+${XP_PER_CALM} XP`, '#f0fdf4');
         }
         orbsRef.current.splice(i, 1);
         continue;
       }
 
+      if (orb.y > canvas.height + orb.r * 2) {
+        orbsRef.current.splice(i, 1);
+        continue;
+      }
+      
       // Draw orb
       ctx.beginPath();
       ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2);
       ctx.fillStyle = orb.color;
-      
-      if (orb.isStress) {
-          ctx.shadowColor = "rgba(255,100,100,0.4)";
-          ctx.shadowBlur = 10;
-      } else {
-          ctx.shadowColor = orb.color;
-          ctx.shadowBlur = 10;
-      }
-
+      ctx.shadowColor = orb.isStress ? "rgba(255,100,100,0.7)" : orb.color;
+      ctx.shadowBlur = 12;
       ctx.fill();
-      ctx.shadowBlur = 0;
-      
-      if (orb.y > canvas.height + orb.r) {
-        orbsRef.current.splice(i, 1);
-      }
     }
+    ctx.shadowBlur = 0;
     
     // Draw and update floating texts
     for(let i = floatingTextsRef.current.length - 1; i >= 0; i--) {
         const ft = floatingTextsRef.current[i];
-        ft.y -= 1;
+        ft.y -= 1.2;
         ft.alpha -= 0.02;
-
+        if (ft.alpha <= 0) {
+            floatingTextsRef.current.splice(i, 1);
+            continue;
+        }
         ctx.globalAlpha = ft.alpha;
         ctx.fillStyle = ft.color;
         ctx.font = "bold 16px Poppins";
         ctx.fillText(ft.text, ft.x, ft.y);
-        ctx.globalAlpha = 1;
-
-        if (ft.alpha <= 0) {
-            floatingTextsRef.current.splice(i, 1);
-        }
     }
+    ctx.globalAlpha = 1;
 
-    // Draw player basket
+    // Draw player
     ctx.fillStyle = '#e0e7ff';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
     ctx.shadowBlur = 15;
@@ -220,41 +232,36 @@ export default function CatchTheCalmPage() {
     ctx.shadowOffsetY = 0;
 
     animationFrameRef.current = requestAnimationFrame(gameLoop);
-  }, [gameState]);
+  }, [gameState, getDifficultyMultiplier]);
 
-    // --- Game State Management ---
-    const endGame = useCallback(() => {
-        if (gameState !== 'playing') return;
-        setGameState('over');
-        if (userProfileRef && xp > 0) {
-            setDocumentNonBlocking(userProfileRef, { xp: increment(xp) }, { merge: true });
-        }
-    }, [gameState, userProfileRef, xp]);
+  const endGame = useCallback((manual = false) => {
+    if (gameState !== 'playing') return;
+    if (userProfileRef && xp > 0) {
+      setDocumentNonBlocking(userProfileRef, { xp: increment(xp), score: increment(xp) }, { merge: true });
+    }
+    if (!manual) playSound('gameOver');
+    setGameState('over');
+  }, [gameState, userProfileRef, xp]);
 
   useEffect(() => {
-      if(stressHits >= MAX_STRESS_HITS && gameState === 'playing') {
-          endGame();
-      }
-  }, [stressHits, gameState, endGame]);
-
+    if (lives <= 0 && gameState === 'playing') {
+      endGame();
+    }
+  }, [lives, gameState, endGame]);
 
   const startGame = () => {
     setXp(0);
-    setStressHits(0);
+    setLives(MAX_LIVES);
+    setCalmCollected(0);
     orbsRef.current = [];
     floatingTextsRef.current = [];
     orbIdCounter = 0;
     textIdCounter = 0;
+    lastCalmSpawn.current = 0;
+    lastStressSpawn.current = 0;
     setGameState('playing');
   };
-
-  const resetGame = () => {
-    setGameState('ready');
-    setXp(0);
-    setStressHits(0);
-  };
   
-  // --- Canvas and Player Setup & Event Listeners ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -268,56 +275,29 @@ export default function CatchTheCalmPage() {
         playerRef.current.x = canvas.width / 2 - playerRef.current.width / 2;
       }
     };
-    
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
     const movePlayer = (x: number) => {
-        const rect = canvas.getBoundingClientRect();
-        let targetX = x - rect.left - playerRef.current.width / 2;
-        playerRef.current.x = Math.max(0, Math.min(targetX, canvas.width - playerRef.current.width));
+      const rect = canvas.getBoundingClientRect();
+      let targetX = x - rect.left - playerRef.current.width / 2;
+      playerRef.current.x = Math.max(0, Math.min(targetX, canvas.width - playerRef.current.width));
     };
 
-    const handlePointerMove = (e: PointerEvent) => movePlayer(e.clientX);
-    
-    const handleKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'ArrowLeft') {
-            playerRef.current.x = Math.max(0, playerRef.current.x - 35);
-        } else if (e.key === 'ArrowRight') {
-            playerRef.current.x = Math.min(canvas.width - playerRef.current.width, playerRef.current.x + 35);
-        }
+    const handlePointerMove = (e: PointerEvent) => {
+        e.preventDefault();
+        movePlayer(e.clientX);
     };
 
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-      } else {
-        if (gameState === 'playing') {
-          animationFrameRef.current = requestAnimationFrame(gameLoop);
-        }
-      }
-    };
-
-    canvas.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
+    canvas.addEventListener('pointermove', handlePointerMove, { passive: false });
     animationFrameRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
       canvas.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [gameLoop, gameState]);
-
-  const gameOverMessage = stressHits >= MAX_STRESS_HITS 
-    ? "You hit too many stress orbs!"
-    : "Game Over!";
+  }, [gameLoop]);
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -325,17 +305,22 @@ export default function CatchTheCalmPage() {
       
       <Card className="w-full max-w-2xl text-center overflow-hidden shadow-lg border border-black/5 dark:border-white/5">
         <CardContent className="p-0">
-          <div className="relative w-full h-[60vh] max-h-[700px] overflow-hidden">
+          <div className="relative w-full h-[65vh] max-h-[700px] overflow-hidden">
              <div className="absolute top-2 left-0 z-20 w-full px-4 flex justify-between items-center text-white font-bold text-lg" style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}>
-                <span className="p-2 rounded-lg bg-black/20">Calm: {xp} XP</span>
-                <span className="p-2 rounded-lg bg-black/20 flex items-center gap-2">
-                    <HeartCrack className="text-red-400" /> 
-                    {stressHits} / {MAX_STRESS_HITS}
-                </span>
+                <span className="p-2 rounded-lg bg-black/20">XP: {xp}</span>
+                <div className="p-2 rounded-lg bg-black/20 flex items-center gap-2">
+                    <Heart className="text-red-400 fill-red-500" size={20} /> 
+                    <motion.span key={lives} animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 0.3 }}>{lives}</motion.span> / {MAX_LIVES}
+                </div>
             </div>
+            
+            <AnimatePresence>
+                {hitFlash && <motion.div initial={{opacity:0}} animate={{opacity:0.3}} exit={{opacity:0}} transition={{duration:0.1}} className="absolute inset-0 bg-red-500 z-10 pointer-events-none" />}
+            </AnimatePresence>
+
             <canvas
               ref={canvasRef}
-              className="w-full h-full cursor-pointer bg-gradient-to-br from-[#a78bfa] to-[#93c5fd]"
+              className="w-full h-full cursor-none bg-gradient-to-br from-[#a78bfa] to-[#93c5fd]"
               style={{ touchAction: 'none' }}
             />
             
@@ -345,27 +330,34 @@ export default function CatchTheCalmPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-10"
+                className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-10 p-4"
               >
                 {gameState === 'ready' && (
-                  <>
+                  <div className="text-center">
                     <h2 className="text-3xl font-bold text-white mb-2">Catch the Calm</h2>
-                    <p className="text-white mb-4 text-center px-4">Collect calm orbs, avoid the red ones.<br/>Hitting {MAX_STRESS_HITS} red orbs ends the game.</p>
+                    <p className="text-white mb-4">Collect calm orbs. Avoid the red ones.<br/>You have {MAX_LIVES} lives.</p>
                     <Button onClick={startGame} size="lg">Start Game</Button>
-                  </>
+                  </div>
                 )}
                 {gameState === 'over' && (
                    <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex flex-col items-center text-center px-4"
+                    className="flex flex-col items-center text-center"
                    >
-                    <h2 className="text-3xl font-bold text-white mb-2">{gameOverMessage}</h2>
-                    <p className="text-xl text-white mb-4">You gained {xp} calm XP!</p>
-                    <div className="flex justify-center">
-                        <Button onClick={resetGame} size="lg">
+                    <h2 className="text-3xl font-bold text-white mb-2">
+                        {lives <= 0 ? '💔 Game Over' : 'Game Ended!'}
+                    </h2>
+                    <p className="text-xl text-white mb-4">
+                        {lives <= 0 ? "You lost all your lives!" : `You gained ${xp} calm XP!`}
+                    </p>
+                    <div className="flex justify-center gap-4">
+                        <Button onClick={startGame} size="lg">
                             <RefreshCw className="mr-2 h-4 w-4" />
                             Play Again
+                        </Button>
+                        <Button asChild variant="secondary">
+                           <Link href="/"><ArrowLeft className="mr-2 h-4 w-4" />Back to Games</Link>
                         </Button>
                     </div>
                   </motion.div>
@@ -373,28 +365,18 @@ export default function CatchTheCalmPage() {
               </motion.div>
             )}
             </AnimatePresence>
-
           </div>
         </CardContent>
       </Card>
-      <div className="w-full flex justify-center mt-4">
+      <div className="w-full flex justify-center mt-2">
         {gameState === 'playing' && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Button
-              onClick={endGame}
-              className="rounded-xl py-2 px-5 font-medium text-white bg-accent/80 hover:bg-accent"
-              style={{ backgroundColor: '#a78bfa' }}
-            >
-              <StopCircle className="mr-2 h-5 w-5" /> End Game
-            </Button>
-          </motion.div>
+          <Button onClick={() => endGame(true)} variant="destructive" className="bg-red-500/80 hover:bg-red-600">
+            <StopCircle className="mr-2 h-5 w-5" /> End Game
+          </Button>
         )}
       </div>
     </div>
   );
 }
+
+    
