@@ -84,6 +84,18 @@ export default function CatchTheCalmPage() {
     }
   }, []);
 
+  // --- Scroll Lock ---
+  useEffect(() => {
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    if (gameState === 'playing') {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = originalStyle;
+    };
+  }, [gameState]);
+
+
   const playSound = (isStress: boolean) => {
     if (Tone.context.state !== 'running') {
       Tone.context.resume();

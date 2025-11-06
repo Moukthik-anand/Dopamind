@@ -13,7 +13,8 @@ export function AppTransitions({ children }: { children: ReactNode }) {
     // loads a URL for a game, they are redirected to the home page.
     // It uses sessionStorage to prevent this redirect from happening during
     // normal client-side navigation within the app.
-    const isReload = window.performance.getEntriesByType('navigation')[0]?.type === 'reload';
+    const navigationEntries = window.performance.getEntriesByType('navigation');
+    const isReload = navigationEntries.length > 0 && (navigationEntries[0] as PerformanceNavigationTiming).type === 'reload';
     const hasNavigated = sessionStorage.getItem('dopamind-navigated');
 
     if ((isReload || !hasNavigated) && pathname.startsWith('/games')) {
@@ -22,12 +23,15 @@ export function AppTransitions({ children }: { children: ReactNode }) {
 
     // Set a flag in session storage after the first navigation check
     // to prevent redirection on subsequent client-side route changes.
-    sessionStorage.setItem('dopamind-navigated', 'true');
+    if (!hasNavigated) {
+      sessionStorage.setItem('dopamind-navigated', 'true');
+    }
     
   // We only want this to run once on the initial load of the component instance,
-  // so we provide an empty dependency array.
+  // so we provide an empty dependency array. The pathname is included to re-evaluate
+  // if the user navigates to a game page directly from the address bar.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, [pathname]); 
 
   return (
     <AnimatePresence mode="wait">
