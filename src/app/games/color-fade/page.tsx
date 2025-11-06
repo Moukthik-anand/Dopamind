@@ -15,7 +15,8 @@ import * as Tone from 'tone';
 const FADE_DURATION_MS = 1200;
 const TOTAL_ROUNDS = 10;
 
-const COLORS = [
+// 18 recognizable colors for names and backgrounds
+const NORMAL_COLORS = [
   { name: 'Red', value: 'red' }, { name: 'Orange', value: 'orange' },
   { name: 'Yellow', value: 'yellow' }, { name: 'Green', value: 'green' },
   { name: 'Blue', value: 'blue' }, { name: 'Purple', value: 'purple' },
@@ -26,6 +27,17 @@ const COLORS = [
   { name: 'Gold', value: 'gold' }, { name: 'Navy', value: 'navy' },
   { name: 'Maroon', value: 'maroon' }, { name: 'Silver', value: 'silver' },
 ];
+
+// 10 confusing shades for background only
+const SHADE_COLORS = [
+  { name: 'PeachPuff', value: '#FFDAB9' }, { name: 'PowderBlue', value: '#B0E0E6' },
+  { name: 'Lavender', value: '#E6E6FA' }, { name: 'LightGreen', value: '#C1FFC1' },
+  { name: 'LemonChiffon', value: '#FFFACD' }, { name: 'Salmon', value: '#FA8072' },
+  { name: 'LightCyan', value: '#E0FFFF' }, { name: 'HotPink', value: '#FF69B4' },
+  { name: 'Wheat', value: '#F5DEB3' }, { name: 'SlateGray', value: '#708090' },
+];
+
+const ALL_BACKGROUND_COLORS = [...NORMAL_COLORS, ...SHADE_COLORS];
 
 const shuffleArray = (array: any[]) => {
   for (let i = array.length - 1; i > 0; i--) {
@@ -39,10 +51,13 @@ export default function ColorFadePage() {
   const [gameState, setGameState] = useState<'ready' | 'playing' | 'over'>('ready');
   const [correctMatches, setCorrectMatches] = useState(0);
   const [xp, setXp] = useState(0);
-  const [feedback, setFeedback] = useState<{ type: 'correct' | 'incorrect' | null, x: number, y: number, key: number }>({ type: null, x: 0, y: 0, key: 0 });
-  const [shuffledColors, setShuffledColors] = useState(() => shuffleArray([...COLORS]));
+  const [feedback, setFeedback] = useState<{ type: 'correct' | 'incorrect' | null, text: string, x: number, y: number, key: number }>({ type: null, text: '', x: 0, y: 0, key: 0 });
+  
+  const [shuffledBgColors, setShuffledBgColors] = useState(() => shuffleArray([...ALL_BACKGROUND_COLORS]));
   const [round, setRound] = useState(0);
-  const [targetColor, setTargetColor] = useState(shuffledColors[0]);
+  
+  // Target color only comes from normal, recognizable colors
+  const [targetColor, setTargetColor] = useState(NORMAL_COLORS[0]);
 
   const { user } = useUser();
   const firestore = useFirestore();
@@ -83,30 +98,33 @@ export default function ColorFadePage() {
   const getNextTarget = useCallback(() => {
      let nextTargetIndex;
      do {
-        nextTargetIndex = Math.floor(Math.random() * shuffledColors.length);
-     } while(shuffledColors[nextTargetIndex].name === targetColor.name);
-     setTargetColor(shuffledColors[nextTargetIndex]);
-  }, [shuffledColors, targetColor]);
+        nextTargetIndex = Math.floor(Math.random() * NORMAL_COLORS.length);
+     } while(NORMAL_COLORS[nextTargetIndex].name === targetColor.name);
+     setTargetColor(NORMAL_COLORS[nextTargetIndex]);
+  }, [targetColor]);
 
   const handleTap = (e: React.MouseEvent<HTMLDivElement>) => {
     if (gameState !== 'playing') return;
 
-    const currentColor = shuffledColors[round % shuffledColors.length];
+    const currentColor = shuffledBgColors[round % shuffledBgColors.length];
     const isMatch = currentColor.name === targetColor.name;
     playSound(isMatch);
     
+    let xpChange = 0;
     if (isMatch) {
-      setXp(prev => prev + 50);
+      xpChange = 50;
       setCorrectMatches(prev => prev + 1);
       if (correctMatches + 1 < TOTAL_ROUNDS) {
         getNextTarget();
       }
     } else {
-      setXp(prev => Math.max(0, prev - 20));
+      xpChange = -20;
     }
+    setXp(prev => Math.max(0, prev + xpChange));
 
     setFeedback({
       type: isMatch ? 'correct' : 'incorrect',
+      text: `${xpChange > 0 ? '+' : ''}${xpChange} XP`,
       x: e.clientX,
       y: e.clientY,
       key: Date.now()
@@ -118,15 +136,16 @@ export default function ColorFadePage() {
     setCorrectMatches(0);
     setRound(0);
     setXp(0);
-    const newShuffledColors = shuffleArray([...COLORS]);
-    setShuffledColors(newShuffledColors);
-    setTargetColor(newShuffledColors[Math.floor(Math.random() * newShuffledColors.length)]);
+    const newShuffledBgColors = shuffleArray([...ALL_BACKGROUND_COLORS]);
+    setShuffledBgColors(newShuffledBgColors);
+    // Ensure target is from normal colors
+    setTargetColor(NORMAL_COLORS[Math.floor(Math.random() * NORMAL_COLORS.length)]);
   };
   
   const endGame = useCallback((early = false) => {
     setGameState('over');
     if (userProfileRef && xp > 0 && !early) {
-        setDocumentNonBlocking(userProfileRef, { xp: increment(xp) }, { merge: true });
+        setDocumentNonBlocking(userProfileRef, { xp: increment(xp), score: increment(xp) }, { merge: true });
     }
   }, [userProfileRef, xp]);
 
@@ -144,7 +163,7 @@ export default function ColorFadePage() {
     return () => clearTimeout(timer);
   }, [gameState, round, correctMatches, endGame]);
   
-  const currentColor = shuffledColors[round % shuffledColors.length];
+  const currentColor = shuffledBgColors[round % shuffledBgColors.length];
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -154,19 +173,20 @@ export default function ColorFadePage() {
           <div className="relative w-full h-[60vh] cursor-pointer overflow-hidden" onClick={handleTap} style={{ backgroundColor: gameState === 'playing' ? currentColor.value : '#E8DAEF', transition: `background-color ${FADE_DURATION_MS}ms ease-in-out` }}>
             
             <AnimatePresence>
-              {feedback.type && (
+              {feedback.text && (
                 <motion.div
                   key={feedback.key}
-                  className="absolute rounded-full pointer-events-none"
-                  initial={{ scale: 0, opacity: 1, x: feedback.x, y: feedback.y, translateX:'-50%', translateY:'-50%' }}
-                  animate={{ scale: 1, opacity: 0 }}
-                  transition={{ duration: 0.7 }}
+                  className="absolute pointer-events-none text-white font-bold"
+                  initial={{ opacity: 1, y: feedback.y, x: feedback.x, translateX:'-50%', translateY:'-50%' }}
+                  animate={{ opacity: 0, y: feedback.y - 50 }}
+                  transition={{ duration: 1.5 }}
                   style={{
-                    width: 100,
-                    height: 100,
-                    border: `3px solid ${feedback.type === 'correct' ? 'white' : 'rgba(255, 50, 50, 0.7)'}`,
+                    color: feedback.type === 'correct' ? '#c7d2fe' : '#fca5a5',
+                    textShadow: '0 0 5px rgba(0,0,0,0.5)',
                   }}
-                />
+                >
+                    {feedback.text}
+                </motion.div>
               )}
             </AnimatePresence>
             
