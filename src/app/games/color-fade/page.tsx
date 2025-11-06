@@ -11,22 +11,17 @@ import { doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import * as Tone from 'tone';
 
-const FADE_DURATION_MS = 1400; // Updated from 1200ms
+const FADE_DURATION_MS = 1800; // Updated from 1400ms to 1800ms
+const EVALUATION_DELAY_MS = 250;
 const TOTAL_ROUNDS = 10;
 const XP_PER_CORRECT = 50;
 const XP_PER_INCORRECT = -20;
 
-const NORMAL_COLORS = [
-  { name: 'Red', value: 'red' }, { name: 'Orange', value: 'orange' },
-  { name: 'Yellow', value: 'yellow' }, { name: 'Green', value: 'green' },
-  { name: 'Blue', value: 'blue' }, { name: 'Purple', value: 'purple' },
-  { name: 'Pink', value: 'pink' }, { name: 'Brown', value: 'brown' },
-  { name: 'Gray', value: 'gray' }, { name: 'White', value: 'white' },
-  { name: 'Black', value: 'black' }, { name: 'Teal', value: 'teal' },
-  { name: 'Cyan', value: 'cyan' }, { name: 'Lime', value: 'lime' },
-  { name: 'Gold', value: 'gold' }, { name: 'Navy', value: 'navy' },
-  { name: 'Maroon', value: 'maroon' }, { name: 'Silver', value: 'silver' },
+const TARGET_NAMES = [
+  "red", "orange", "yellow", "green", "blue", "purple", "pink", "teal", "cyan", "brown", "gray", "black"
 ];
+
+const NORMAL_COLORS = TARGET_NAMES.map(name => ({ name, value: name }));
 
 const SHADE_COLORS = [
   { name: 'PeachPuff', value: '#FFDAB9' }, { name: 'PowderBlue', value: '#B0E0E6' },
@@ -57,6 +52,7 @@ export default function ColorFadePage() {
   const [round, setRound] = useState(0);
   
   const [targetColor, setTargetColor] = useState(NORMAL_COLORS[0]);
+  const [isEvaluating, setIsEvaluating] = useState(false);
 
   const { user } = useUser();
   const firestore = useFirestore();
@@ -103,11 +99,15 @@ export default function ColorFadePage() {
   }, [targetColor]);
 
   const handleTap = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (gameState !== 'playing') return;
+    if (gameState !== 'playing' || isEvaluating) return;
 
+    setIsEvaluating(true);
     setMoves(prev => prev + 1);
+
+    const targetSnapshot = targetColor;
     const currentColor = shuffledBgColors[round % shuffledBgColors.length];
-    const isMatch = currentColor.name === targetColor.name;
+    const isMatch = currentColor.name === targetSnapshot.name;
+    
     playSound(isMatch);
     
     let xpChange = isMatch ? XP_PER_CORRECT : XP_PER_INCORRECT;
@@ -119,9 +119,12 @@ export default function ColorFadePage() {
     
     if (isMatch) {
       setCorrectMatches(prev => prev + 1);
-      // We check for `correctMatches + 1` to see if the game should end *after* this correct match
-      if (correctMatches + 1 < TOTAL_ROUNDS) {
-        getNextTarget();
+      if (correctMatches + 1 >= TOTAL_ROUNDS) {
+        endGame();
+      } else {
+        setTimeout(() => {
+          getNextTarget();
+        }, EVALUATION_DELAY_MS);
       }
     }
     
@@ -131,6 +134,10 @@ export default function ColorFadePage() {
       y: e.clientY,
       key: Date.now()
     });
+
+    setTimeout(() => {
+        setIsEvaluating(false);
+    }, 120); // Debounce taps
   };
 
   const startGame = () => {
@@ -266,5 +273,7 @@ export default function ColorFadePage() {
     </div>
   );
 }
+
+    
 
     
