@@ -45,7 +45,7 @@ export default function RootLayout({
                 <div className="relative flex min-h-screen flex-col">
                     <Header />
                     <AppTransitions>
-                      <main className="flex-1">{children}</main>
+                      <main className="flex-1 pb-20">{children}</main>
                     </AppTransitions>
                     <Footer />
                 </div>

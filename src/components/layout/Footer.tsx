@@ -10,9 +10,7 @@ export function Footer() {
 
   return (
     <>
-      <footer
-        className="w-full py-5"
-      >
+      <footer className="fixed bottom-0 left-0 w-full py-5 border-t border-border/20 bg-background/30 backdrop-blur-lg supports-[backdrop-filter]:bg-background/30 z-40">
         <div className="container flex flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground/80">
             <span className="text-xs font-medium">
               © 2025 Built by Moukthik Anand
