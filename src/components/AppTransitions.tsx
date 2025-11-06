@@ -9,15 +9,25 @@ export function AppTransitions({ children }: { children: ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    // On initial load, if the user is on a game page, redirect to home.
-    const navigationEntries = window.performance.getEntriesByType('navigation');
-    if (navigationEntries.length > 0 && (navigationEntries[0] as PerformanceNavigationTiming).type === 'reload') {
-      if (pathname.startsWith('/games/')) {
-        router.replace('/');
-      }
+    // This logic ensures that if a user performs a hard refresh or directly
+    // loads a URL for a game, they are redirected to the home page.
+    // It uses sessionStorage to prevent this redirect from happening during
+    // normal client-side navigation within the app.
+    const isReload = window.performance.getEntriesByType('navigation')[0]?.type === 'reload';
+    const hasNavigated = sessionStorage.getItem('dopamind-navigated');
+
+    if ((isReload || !hasNavigated) && pathname.startsWith('/games')) {
+      router.replace('/');
     }
+
+    // Set a flag in session storage after the first navigation check
+    // to prevent redirection on subsequent client-side route changes.
+    sessionStorage.setItem('dopamind-navigated', 'true');
+    
+  // We only want this to run once on the initial load of the component instance,
+  // so we provide an empty dependency array.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]); // Depend on pathname to re-evaluate on route change
+  }, []); 
 
   return (
     <AnimatePresence mode="wait">
