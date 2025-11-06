@@ -72,8 +72,8 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/30 backdrop-blur-lg supports-[backdrop-filter]:bg-background/30">
-      <div className="container flex h-16 items-center">
-        <Link href="/" className="mr-auto md:mr-6 flex items-center space-x-2">
+      <div className="container flex h-16 items-center justify-between">
+        <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
           <BrainCircuit className="h-6 w-6 text-primary" />
            <motion.span
             className="font-bold font-headline sm:inline-block text-foreground"
@@ -90,7 +90,7 @@ export function Header() {
             Dopamind
           </motion.span>
         </Link>
-        <nav className="hidden md:flex items-center gap-4 text-sm font-medium">
+        <nav className="flex-grow flex justify-center items-center gap-4 text-sm font-medium">
           <Button variant="ghost" asChild>
             <Link href={randomGamePath || '/'}>
               <Dices className="mr-2" />
@@ -98,7 +98,7 @@ export function Header() {
             </Link>
           </Button>
         </nav>
-        <div className="flex items-center justify-end space-x-2 md:space-x-4 ml-auto">
+        <div className="flex items-center justify-end space-x-2 md:space-x-4 flex-shrink-0">
           {isUserLoading ? (
             <div className="flex items-center gap-4">
               <div className="h-8 w-16 bg-muted rounded-full animate-pulse" />
