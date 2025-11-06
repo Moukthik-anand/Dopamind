@@ -205,12 +205,12 @@ export default function BubblePopperPage() {
   }, [gameState]);
   
   // --- Game State & Timer Management ---
-  const stopTimer = () => {
+  const stopTimer = useCallback(() => {
     if (timerRafRef.current) {
         cancelAnimationFrame(timerRafRef.current);
         timerRafRef.current = null;
     }
-  };
+  }, []);
 
   const endGame = useCallback(() => {
     if (gameState !== 'playing') return; // Prevent multiple calls
@@ -219,19 +219,35 @@ export default function BubblePopperPage() {
     if (user && userProfileRef && score > 0) {
       setDocumentNonBlocking(userProfileRef, { score: increment(score) }, { merge: true });
     }
-  }, [gameState, user, userProfileRef, score]);
+  }, [gameState, user, userProfileRef, score, stopTimer]);
 
-  const timerLoop = useCallback(() => {
-    const elapsed = performance.now() - gameStartTimeRef.current;
-    const remaining = Math.max(0, GAME_DURATION_MS - elapsed);
-    setTimeRemaining(Math.ceil(remaining / 1000));
-
-    if (remaining === 0) {
-      endGame();
-    } else {
-      timerRafRef.current = requestAnimationFrame(timerLoop);
+  useEffect(() => {
+    if (gameState !== 'playing') {
+      stopTimer();
+      return;
     }
-  }, [endGame]);
+
+    gameStartTimeRef.current = performance.now();
+
+    const timerLoop = () => {
+      const elapsed = performance.now() - gameStartTimeRef.current;
+      const remaining = Math.max(0, GAME_DURATION_MS - elapsed);
+      const newTime = Math.ceil(remaining / 1000);
+      
+      setTimeRemaining(prev => newTime < prev ? newTime : prev);
+
+      if (remaining <= 0) {
+        endGame();
+      } else {
+        timerRafRef.current = requestAnimationFrame(timerLoop);
+      }
+    };
+
+    timerRafRef.current = requestAnimationFrame(timerLoop);
+
+    return () => stopTimer();
+  }, [gameState, endGame, stopTimer]);
+
 
   const startGame = useCallback(() => {
     setScore(0);
@@ -240,12 +256,7 @@ export default function BubblePopperPage() {
     bubblesRef.current = [];
     particlesRef.current = [];
     bubbleIdCounter = 0;
-    
-    // Start high-precision timer
-    gameStartTimeRef.current = performance.now();
-    if (timerRafRef.current) cancelAnimationFrame(timerRafRef.current);
-    timerRafRef.current = requestAnimationFrame(timerLoop);
-  }, [timerLoop]);
+  }, []);
   
   const resetGame = useCallback(() => {
     stopTimer();
@@ -259,7 +270,7 @@ export default function BubblePopperPage() {
     particlesRef.current = [];
 
     animationFrameRef.current = requestAnimationFrame(gameLoop);
-  }, [gameLoop]);
+  }, [gameLoop, stopTimer]);
 
   // --- Canvas Setup & Resize ---
   useEffect(() => {
@@ -283,7 +294,7 @@ export default function BubblePopperPage() {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       stopTimer();
     };
-  }, [gameLoop]);
+  }, [gameLoop, stopTimer]);
 
   // --- Input Handling ---
   const handlePop = useCallback(
