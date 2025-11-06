@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { games } from '@/lib/games';
 import { GameCard } from '@/components/GameCard';
 import { useUser } from '@/firebase';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Dices } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function Home() {
   const [randomGamePath, setRandomGamePath] = useState('');
@@ -23,7 +26,7 @@ export default function Home() {
 
   return (
     <div className="container py-8 md:py-12">
-      <section className="mb-12 text-center">
+      <section className="mb-12 text-center flex flex-col items-center w-full">
         <AnimatePresence>
           {!isUserLoading && user ? (
             <motion.div
@@ -53,6 +56,19 @@ export default function Home() {
              </motion.div>
           )}
         </AnimatePresence>
+
+        <div className="my-4">
+          <Button
+            asChild
+            className="py-3 px-6 text-base font-semibold rounded-xl flex items-center justify-center gap-2 bg-gradient-to-r from-purple-300/30 to-purple-500/20 text-foreground transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-purple-400/40"
+            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}
+          >
+            <Link href={randomGamePath || '/'}>
+              <Dices className="mr-2 h-5 w-5" />
+              Play Random Game
+            </Link>
+          </Button>
+        </div>
       </section>
 
       <section>

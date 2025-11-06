@@ -31,7 +31,6 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export function Header() {
-  const [randomGamePath, setRandomGamePath] = useState('');
   const auth = useAuth();
   const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
@@ -42,15 +41,6 @@ export function Header() {
   }, [firestore, user]);
 
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
-
-  useEffect(() => {
-    const getRandomGamePath = () => {
-      if (games.length === 0) return '/';
-      const randomIndex = Math.floor(Math.random() * games.length);
-      return games[randomIndex].path;
-    };
-    setRandomGamePath(getRandomGamePath());
-  }, []);
 
   const handleGoogleSignIn = async () => {
     if (!auth) return;
@@ -91,12 +81,7 @@ export function Header() {
           </motion.span>
         </Link>
         <nav className="flex-grow flex justify-center items-center min-w-0 px-2">
-           <Button variant="ghost" asChild className="min-w-fit max-w-[180px] flex-shrink text-xs sm:text-sm truncate rounded-xl sm:rounded-2xl">
-            <Link href={randomGamePath || '/'}>
-              <Dices className="mr-1 sm:mr-2 h-4 w-4" />
-              <span className="truncate">Play Random</span>
-            </Link>
-          </Button>
+           {/* "Play Random" button removed from here */}
         </nav>
         <div className="flex items-center justify-end space-x-2 sm:space-x-3 flex-shrink-0">
           {isUserLoading ? (
