@@ -5,44 +5,47 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function StartupAnimation({ children }: { children: React.ReactNode }) {
-  const [showIntro, setShowIntro] = useState(false);
-  const [introFinished, setIntroFinished] = useState(false);
+  const [isShowingIntro, setIsShowingIntro] = useState(true);
 
   useEffect(() => {
-    const hasSeenIntro = localStorage.getItem('seenIntro');
-    if (!hasSeenIntro) {
-      setShowIntro(true);
-      localStorage.setItem('seenIntro', 'true');
-    } else {
-      setIntroFinished(true);
-    }
+    // Hide the intro after a delay on every page load
+    const timer = setTimeout(() => {
+      setIsShowingIntro(false);
+    }, 2000); // 2-second intro
+
+    return () => clearTimeout(timer);
   }, []);
 
-  if (!introFinished) {
-    return (
-      <AnimatePresence
-        onExitComplete={() => setIntroFinished(true)}
-      >
-        {showIntro && (
+  return (
+    <>
+      <AnimatePresence>
+        {isShowingIntro && (
           <motion.div
+            initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.8, ease: 'easeInOut' }}
             className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-gradient-to-br from-background to-primary/30"
           >
-            <motion.div
+            <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, ease: 'easeInOut' }}
-              onAnimationComplete={() => setTimeout(() => setShowIntro(false), 1500)}
+              transition={{ duration: 0.8, ease: 'easeInOut', delay: 0.2 }}
+              className="text-4xl font-bold font-headline tracking-tight text-primary-foreground"
             >
-              <h1 className="text-4xl font-bold font-headline tracking-tight text-primary-foreground">Dopamind</h1>
-              <p className="text-center text-primary-foreground/80">Tap. Play. Reset.</p>
-            </motion.div>
+              Dopamind
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: 'easeInOut', delay: 0.5 }}
+              className="text-center text-primary-foreground/80 mt-2"
+            >
+              Tap. Play. Reset.
+            </motion.p>
           </motion.div>
         )}
       </AnimatePresence>
-    );
-  }
-
-  return children;
+      {!isShowingIntro && children}
+    </>
+  );
 }
