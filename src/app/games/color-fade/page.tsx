@@ -24,7 +24,7 @@ const COLORS = [
   { name: 'Brown', value: 'brown' }, { name: 'Gray', value: 'gray' },
   { name: 'Cyan', value: 'cyan' }, { name: 'Lime', value: 'lime' },
   { name: 'Gold', value: 'gold' }, { name: 'Navy', value: 'navy' },
-  { name: 'Maroon', value: 'maroon' }, { name 'Silver', value: 'silver' },
+  { name: 'Maroon', value: 'maroon' }, { name: 'Silver', value: 'silver' },
 ];
 
 const shuffleArray = (array: any[]) => {
@@ -251,5 +251,3 @@ export default function ColorFadePage() {
     </div>
   );
 }
-
-    
