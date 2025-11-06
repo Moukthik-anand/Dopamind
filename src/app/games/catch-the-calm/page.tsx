@@ -59,7 +59,7 @@ export default function CatchTheCalmPage() {
   const floatingTextsRef = useRef<FloatingText[]>([]);
   const playerRef = useRef<{ x: number; y: number; width: number; height: number; }>({ x: 0, y: 0, width: 90, height: 15 });
   const lastCalmSpawn = useRef(0);
-  const nextCalmSpawnInterval = useRef(900 + Math.random() * 200); // 0.9-1.1s
+  const nextCalmSpawnInterval = useRef(450 + Math.random() * 100); // 0.45-0.55s
   const lastStressSpawn = useRef(0);
   const nextStressSpawnInterval = useRef(300 + Math.random() * 200); // 0.3-0.5s
   
@@ -131,7 +131,7 @@ export default function CatchTheCalmPage() {
             blur: 8,
         });
         lastCalmSpawn.current = timestamp;
-        nextCalmSpawnInterval.current = 900 + Math.random() * 200;
+        nextCalmSpawnInterval.current = 450 + Math.random() * 100;
     }
     
     if (timestamp - lastStressSpawn.current > nextStressSpawnInterval.current) {
@@ -362,7 +362,3 @@ export default function CatchTheCalmPage() {
     </div>
   );
 }
-
-    
-
-    
