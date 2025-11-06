@@ -72,7 +72,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/30 backdrop-blur-lg supports-[backdrop-filter]:bg-background/30 overflow-visible">
-      <div className="container flex h-16 items-center justify-between gap-2 sm:gap-4 flex-wrap">
+      <div className="container flex h-16 items-center justify-between gap-2 sm:gap-4 flex-nowrap">
         <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
           <BrainCircuit className="h-6 w-6 text-primary" />
            <motion.span
@@ -90,23 +90,23 @@ export function Header() {
             Dopamind
           </motion.span>
         </Link>
-        <nav className="flex-grow flex justify-center items-center">
-           <Button variant="ghost" asChild className="min-w-fit max-w-[150px] flex-shrink text-xs sm:text-sm">
+        <nav className="flex-grow flex justify-center items-center min-w-0 px-2">
+           <Button variant="ghost" asChild className="min-w-fit max-w-[150px] flex-shrink text-xs sm:text-sm truncate">
             <Link href={randomGamePath || '/'}>
-              <Dices className="mr-1 sm:mr-2" />
-              Play Random
+              <Dices className="mr-1 sm:mr-2 h-4 w-4" />
+              <span className="truncate">Play Random</span>
             </Link>
           </Button>
         </nav>
         <div className="flex items-center justify-end space-x-2 flex-shrink-0">
           {isUserLoading ? (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               <div className="h-8 w-16 bg-muted rounded-full animate-pulse" />
               <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
             </div>
           ) : user ? (
             <>
-              <div className="hidden sm:flex items-center gap-2 rounded-full border border-white/20 bg-black/10 px-3 py-1 text-sm font-medium">
+              <div className="hidden sm:flex items-center gap-2 rounded-full border border-border/20 bg-background/10 px-3 py-1 text-sm font-medium">
                 <Star className="h-4 w-4 text-yellow-400" />
                 <span>{userProfile?.score ?? 0}</span>
               </div>
@@ -130,10 +130,10 @@ export function Header() {
                 <DropdownMenuContent className="w-56 p-2 rounded-xl bg-white dark:bg-[#1e1e1e] border border-border shadow-lg" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal px-2 py-1.5">
                     <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-bold leading-none text-[#111] dark:text-white">
+                      <p className="text-sm font-bold leading-none text-[#111] dark:text-white truncate">
                         {user.displayName}
                       </p>
-                      <p className="text-xs leading-none text-[#555] dark:text-gray-400">
+                      <p className="text-xs leading-none text-[#555] dark:text-gray-400 truncate">
                         {user.email}
                       </p>
                     </div>
