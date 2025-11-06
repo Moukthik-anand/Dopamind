@@ -11,13 +11,16 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const CANVAS_SIZE = 300;
 const LOCAL_STORAGE_KEY = 'pixel-paint-doodle';
+const COLORS = ['#000000', '#EF4444', '#3B82F6', '#22C55E', '#8B5CF6', '#F97316'];
 
 export default function PixelPaintPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [currentColor, setCurrentColor] = useState(COLORS[0]);
 
   const getCanvasContext = () => {
     const canvas = canvasRef.current;
@@ -25,6 +28,14 @@ export default function PixelPaintPage() {
     return canvas.getContext('2d');
   };
 
+  useEffect(() => {
+    const ctx = getCanvasContext();
+    if (!ctx) return;
+    ctx.strokeStyle = currentColor;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+  }, [currentColor]);
+  
   const startDrawing = (event: React.MouseEvent | React.TouchEvent) => {
     const ctx = getCanvasContext();
     if (!ctx) return;
@@ -90,10 +101,11 @@ export default function PixelPaintPage() {
   useEffect(() => {
     const ctx = getCanvasContext();
     if (!ctx) return;
-    ctx.strokeStyle = '#000000'; // Solid black
+    ctx.strokeStyle = currentColor;
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
     loadCanvas();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const clearCanvas = () => {
@@ -129,8 +141,21 @@ export default function PixelPaintPage() {
               onTouchEnd={stopDrawing}
             />
           </div>
-          <div className="flex flex-col items-center gap-3 pt-2">
-             <p className="text-sm text-muted-foreground">Create your calm.</p>
+          <div className="flex flex-col items-center gap-4 pt-2 w-full">
+            <div className="flex gap-2 justify-center flex-wrap">
+                {COLORS.map(color => (
+                    <button
+                        key={color}
+                        onClick={() => setCurrentColor(color)}
+                        className={cn(
+                            "w-8 h-8 rounded-full border-2 transition-all",
+                            currentColor === color ? 'border-primary scale-110' : 'border-transparent'
+                        )}
+                        style={{ backgroundColor: color }}
+                        aria-label={`Select color ${color}`}
+                    />
+                ))}
+            </div>
              <Button onClick={clearCanvas} variant="outline" size="sm">
               <Trash2 className="mr-2 h-4 w-4" />
               Clear Canvas

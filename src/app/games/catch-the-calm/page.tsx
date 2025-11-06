@@ -5,11 +5,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw, ArrowLeft, StopCircle } from 'lucide-react';
+import { RefreshCw, StopCircle, HeartCrack, Plus, Minus } from 'lucide-react';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import Link from 'next/link';
 import * as Tone from 'tone';
 
 // --- Types and Constants ---
@@ -32,18 +31,34 @@ interface Player {
   height: number;
 }
 
+interface FloatingText {
+    id: number;
+    x: number;
+    y: number;
+    text: string;
+    alpha: number;
+    color: string;
+}
+
 const CALM_ORB_COLORS = ['#a5f3fc', '#c7d2fe', '#bbf7d0'];
 const STRESS_ORB_COLOR = '#f87171';
+const MAX_STRESS_HITS = 10;
+const XP_PER_CALM = 10;
+const XP_PENALTY_PER_STRESS = -50;
+
 
 let orbIdCounter = 0;
+let textIdCounter = 0;
 
 export default function CatchTheCalmPage() {
   const [gameState, setGameState] = useState<GameState>('ready');
   const [xp, setXp] = useState(0);
+  const [stressHits, setStressHits] = useState(0);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
   const orbsRef = useRef<Orb[]>([]);
+  const floatingTextsRef = useRef<FloatingText[]>([]);
   const playerRef = useRef<Player>({ x: 0, y: 0, width: 90, height: 15 });
   
   // Firebase
@@ -78,6 +93,17 @@ export default function CatchTheCalmPage() {
     } else {
       synthRef.current?.calm.triggerAttackRelease("C5", "8n");
     }
+  };
+
+  const createFloatingText = (x: number, y: number, text: string, color: string) => {
+    floatingTextsRef.current.push({
+      id: textIdCounter++,
+      x,
+      y,
+      text,
+      alpha: 1,
+      color,
+    });
   };
 
   // --- Game Loop ---
@@ -119,9 +145,12 @@ export default function CatchTheCalmPage() {
       ) {
         playSound(orb.isStress);
         if (orb.isStress) {
-          setXp(prev => prev - 5);
+          setXp(prev => prev + XP_PENALTY_PER_STRESS);
+          setStressHits(prev => prev + 1);
+          createFloatingText(orb.x, orb.y, `${XP_PENALTY_PER_STRESS} XP`, '#fca5a5');
         } else {
-          setXp(prev => prev + 10);
+          setXp(prev => prev + XP_PER_CALM);
+          createFloatingText(orb.x, orb.y, `+${XP_PER_CALM} XP`, '#f0fdf4');
         }
         orbsRef.current.splice(i, 1);
         continue;
@@ -147,6 +176,23 @@ export default function CatchTheCalmPage() {
         orbsRef.current.splice(i, 1);
       }
     }
+    
+    // Draw and update floating texts
+    for(let i = floatingTextsRef.current.length - 1; i >= 0; i--) {
+        const ft = floatingTextsRef.current[i];
+        ft.y -= 1;
+        ft.alpha -= 0.02;
+
+        ctx.globalAlpha = ft.alpha;
+        ctx.fillStyle = ft.color;
+        ctx.font = "bold 16px Poppins";
+        ctx.fillText(ft.text, ft.x, ft.y);
+        ctx.globalAlpha = 1;
+
+        if (ft.alpha <= 0) {
+            floatingTextsRef.current.splice(i, 1);
+        }
+    }
 
     // Draw player basket
     ctx.fillStyle = '#e0e7ff';
@@ -157,29 +203,39 @@ export default function CatchTheCalmPage() {
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
 
-
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, [gameState]);
 
-  // --- Game State Management ---
+    // --- Game State Management ---
+    const endGame = useCallback(() => {
+        if (gameState !== 'playing') return;
+        setGameState('over');
+        if (userProfileRef && xp > 0) {
+            setDocumentNonBlocking(userProfileRef, { xp: increment(xp) }, { merge: true });
+        }
+    }, [gameState, userProfileRef, xp]);
+
+  useEffect(() => {
+      if(stressHits >= MAX_STRESS_HITS && gameState === 'playing') {
+          endGame();
+      }
+  }, [stressHits, gameState, endGame]);
+
+
   const startGame = () => {
     setXp(0);
+    setStressHits(0);
     orbsRef.current = [];
+    floatingTextsRef.current = [];
     orbIdCounter = 0;
+    textIdCounter = 0;
     setGameState('playing');
   };
-
-  const endGame = useCallback(() => {
-    if (gameState !== 'playing') return;
-    setGameState('over');
-    if (userProfileRef && xp > 0) {
-      setDocumentNonBlocking(userProfileRef, { score: increment(xp) }, { merge: true });
-    }
-  }, [gameState, userProfileRef, xp]);
 
   const resetGame = () => {
     setGameState('ready');
     setXp(0);
+    setStressHits(0);
   };
   
   // --- Canvas and Player Setup & Event Listeners ---
@@ -249,6 +305,10 @@ export default function CatchTheCalmPage() {
     };
   }, [gameLoop, gameState]);
 
+  const gameOverMessage = stressHits >= MAX_STRESS_HITS 
+    ? "You hit too many stress orbs!"
+    : "Game Over!";
+
   return (
     <div className="flex flex-col items-center gap-4">
       <h1 className="text-4xl font-bold font-headline">Catch the Calm</h1>
@@ -256,8 +316,12 @@ export default function CatchTheCalmPage() {
       <Card className="w-full max-w-2xl text-center overflow-hidden shadow-lg border border-black/5 dark:border-white/5">
         <CardContent className="p-0">
           <div className="relative w-full h-[60vh] max-h-[700px] overflow-hidden">
-             <div className="absolute top-2 left-0 z-20 w-full px-4 flex justify-center text-white font-bold text-lg" style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}>
-              <span>Calm: {xp} XP</span>
+             <div className="absolute top-2 left-0 z-20 w-full px-4 flex justify-between items-center text-white font-bold text-lg" style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}>
+                <span className="p-2 rounded-lg bg-black/20">Calm: {xp} XP</span>
+                <span className="p-2 rounded-lg bg-black/20 flex items-center gap-2">
+                    <HeartCrack className="text-red-400" /> 
+                    {stressHits} / {MAX_STRESS_HITS}
+                </span>
             </div>
             <canvas
               ref={canvasRef}
@@ -275,7 +339,7 @@ export default function CatchTheCalmPage() {
                 {gameState === 'ready' && (
                   <>
                     <h2 className="text-3xl font-bold text-white mb-2">Catch the Calm</h2>
-                    <p className="text-white mb-4">Collect calm orbs, avoid the red ones.</p>
+                    <p className="text-white mb-4 text-center px-4">Collect calm orbs, avoid the red ones.<br/>Hitting {MAX_STRESS_HITS} red orbs ends the game.</p>
                     <Button onClick={startGame} size="lg">Start Game</Button>
                   </>
                 )}
@@ -283,9 +347,9 @@ export default function CatchTheCalmPage() {
                    <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="flex flex-col items-center"
+                    className="flex flex-col items-center text-center px-4"
                    >
-                    <h2 className="text-3xl font-bold text-white mb-2">Game Over!</h2>
+                    <h2 className="text-3xl font-bold text-white mb-2">{gameOverMessage}</h2>
                     <p className="text-xl text-white mb-4">You gained {xp} calm XP!</p>
                     <div className="flex justify-center">
                         <Button onClick={resetGame} size="lg">

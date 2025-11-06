@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw, StopCircle } from 'lucide-react';
+import { RefreshCw, StopCircle, TimerIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth, useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import {
@@ -25,6 +25,7 @@ import type { UserProfile } from '@/lib/types';
 
 // --- Constants ---
 type GameState = 'ready' | 'playing' | 'over';
+const GAME_DURATION = 60; // seconds
 
 interface Bubble {
   id: number;
@@ -49,9 +50,11 @@ let bubbleIdCounter = 0;
 export default function BubblePopperPage() {
   const [gameState, setGameState] = useState<GameState>('ready');
   const [score, setScore] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(GAME_DURATION);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
+  const timerIntervalRef = useRef<NodeJS.Timeout>();
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const bubblesRef = useRef<Bubble[]>([]);
@@ -114,7 +117,7 @@ export default function BubblePopperPage() {
     const o = p.createOscillator();
     const g = p.createGain();
     o.connect(g);
-    g.connect(p.destination);
+g.connect(p.destination);
     o.type = 'triangle';
     o.frequency.setValueAtTime(800 + Math.random() * 200, p.currentTime);
     g.gain.setValueAtTime(0.3, p.currentTime);
@@ -199,28 +202,44 @@ export default function BubblePopperPage() {
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, [gameState]);
 
-  // --- Game State Management ---
-  const startGame = useCallback(() => {
-    setScore(0);
-    setGameState('playing');
-    bubblesRef.current = [];
-    particlesRef.current = [];
-    bubbleIdCounter = 0;
-  }, []);
-
+    // --- Game State & Timer Management ---
   const endGame = useCallback(() => {
     if (gameState !== 'playing') return; // Prevent multiple calls
     setGameState('over');
+    if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+    }
     if (user && userProfileRef && score > 0) {
       setDocumentNonBlocking(userProfileRef, { score: increment(score) }, { merge: true });
     }
   }, [gameState, user, userProfileRef, score]);
 
+  const startGame = useCallback(() => {
+    setScore(0);
+    setTimeRemaining(GAME_DURATION);
+    setGameState('playing');
+    bubblesRef.current = [];
+    particlesRef.current = [];
+    bubbleIdCounter = 0;
+
+    timerIntervalRef.current = setInterval(() => {
+      setTimeRemaining((prevTime) => {
+        if (prevTime <= 1) {
+          endGame();
+          return 0;
+        }
+        return prevTime - 1;
+      });
+    }, 1000);
+  }, [endGame]);
+  
   const resetGame = useCallback(() => {
     if (animationFrameRef.current)
       cancelAnimationFrame(animationFrameRef.current);
+    if(timerIntervalRef.current) clearInterval(timerIntervalRef.current)
 
     setScore(0);
+    setTimeRemaining(GAME_DURATION)
     setGameState('ready');
     bubblesRef.current = [];
     particlesRef.current = [];
@@ -247,8 +266,8 @@ export default function BubblePopperPage() {
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
-      if (animationFrameRef.current)
-        cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
   }, [gameLoop]);
 
@@ -307,24 +326,29 @@ export default function BubblePopperPage() {
       <Card className="w-full max-w-2xl text-center overflow-hidden shadow-lg border border-black/5 dark:border-white/5">
         <CardContent className="p-0">
           <div className="relative w-full h-[60vh] max-h-[700px] overflow-hidden">
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 w-full px-4">
-              <div className="flex justify-center items-center text-white">
+            <div className="absolute top-2 left-0 z-20 w-full px-4 flex justify-between items-center text-white">
                 <div
-                  className="font-bold text-2xl"
+                  className="font-bold text-lg sm:text-xl p-2 rounded-lg bg-black/20"
                   style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}
                 >
-                  Score: {' '}
+                  Score:{' '}
                    <motion.span
                     key={score}
                     initial={{ scale: 1.2, opacity: 0.5 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="inline-block"
+                    className="inline-block w-12 text-left"
                   >
                     {score}
                   </motion.span>
                 </div>
-              </div>
+                <div
+                  className="font-bold text-lg sm:text-xl flex items-center p-2 rounded-lg bg-black/20"
+                  style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}
+                >
+                    <TimerIcon className="mr-2 h-5 w-5"/>
+                    <span>{timeRemaining}s</span>
+                </div>
             </div>
             <canvas
               ref={canvasRef}
@@ -343,7 +367,7 @@ export default function BubblePopperPage() {
                       Pop the Bubbles!
                     </h2>
                     <p className="text-white mb-4">
-                      Pop as many as you can.
+                      You have {GAME_DURATION} seconds. Go!
                     </p>
                     <Button onClick={startGame} size="lg">
                       Start Game
@@ -354,9 +378,10 @@ export default function BubblePopperPage() {
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
+                    className="text-center px-4"
                   >
                     <h2 className="text-3xl font-bold text-white mb-2">
-                      Game Over!
+                      Time's Up!
                     </h2>
                     <p className="text-xl text-white mb-4">
                       You popped {score} bubbles! Your total score is now {displayScore}.
