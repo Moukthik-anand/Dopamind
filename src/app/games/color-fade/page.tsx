@@ -5,16 +5,15 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw, ArrowLeft, XCircle } from 'lucide-react';
+import { RefreshCw, XCircle } from 'lucide-react';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import Link from 'next/link';
 import * as Tone from 'tone';
 
-const FADE_DURATION_MS = 1200;
+const FADE_DURATION_MS = 1400; // Updated from 1200ms
 const TOTAL_ROUNDS = 10;
-const XP_PER_CORRECT = 150;
+const XP_PER_CORRECT = 50;
 const XP_PER_INCORRECT = -20;
 
 const NORMAL_COLORS = [
@@ -112,17 +111,18 @@ export default function ColorFadePage() {
     playSound(isMatch);
     
     let xpChange = isMatch ? XP_PER_CORRECT : XP_PER_INCORRECT;
-
+    
     setXp(prev => Math.max(0, prev + xpChange));
     if (userProfileRef) {
         setDocumentNonBlocking(userProfileRef, { xp: increment(xpChange), score: increment(xpChange) }, { merge: true });
     }
-
+    
     if (isMatch) {
-        setCorrectMatches(prev => prev + 1);
-        if (correctMatches + 1 < TOTAL_ROUNDS) {
-            getNextTarget();
-        }
+      setCorrectMatches(prev => prev + 1);
+      // We check for `correctMatches + 1` to see if the game should end *after* this correct match
+      if (correctMatches + 1 < TOTAL_ROUNDS) {
+        getNextTarget();
+      }
     }
     
     setFeedback({
@@ -166,7 +166,6 @@ export default function ColorFadePage() {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <h1 className="text-4xl font-bold font-headline">Color Fade</h1>
       <Card className="w-full max-w-lg text-center overflow-hidden">
         <CardContent className="p-0">
           <div className="relative w-full h-[60vh] cursor-pointer overflow-hidden" onClick={handleTap} style={{ backgroundColor: gameState === 'playing' ? currentColor.value : '#E8DAEF', transition: `background-color ${FADE_DURATION_MS}ms ease-in-out` }}>
