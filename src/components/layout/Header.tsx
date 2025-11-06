@@ -72,11 +72,11 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/30 backdrop-blur-lg supports-[backdrop-filter]:bg-background/30 overflow-visible">
-      <div className="container flex h-16 items-center justify-between gap-2 sm:gap-4 flex-nowrap">
+      <div className="container flex h-16 sm:h-20 items-center justify-between gap-3 sm:gap-4 md:gap-6 flex-nowrap px-4 sm:px-6 md:px-8">
         <Link href="/" className="flex items-center space-x-2 flex-shrink-0">
-          <BrainCircuit className="h-6 w-6 text-primary" />
+          <BrainCircuit className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
            <motion.span
-            className="font-bold font-headline sm:inline-block text-foreground"
+            className="font-bold font-headline text-lg sm:text-xl text-foreground"
             animate={{
               textShadow: ['0 0 4px rgba(255,255,255,0)', '0 0 8px rgba(217, 184, 222, 0.7)', '0 0 4px rgba(255,255,255,0)'],
             }}
@@ -91,14 +91,14 @@ export function Header() {
           </motion.span>
         </Link>
         <nav className="flex-grow flex justify-center items-center min-w-0 px-2">
-           <Button variant="ghost" asChild className="min-w-fit max-w-[150px] flex-shrink text-xs sm:text-sm truncate">
+           <Button variant="ghost" asChild className="min-w-fit max-w-[180px] flex-shrink text-xs sm:text-sm truncate rounded-xl sm:rounded-2xl">
             <Link href={randomGamePath || '/'}>
               <Dices className="mr-1 sm:mr-2 h-4 w-4" />
               <span className="truncate">Play Random</span>
             </Link>
           </Button>
         </nav>
-        <div className="flex items-center justify-end space-x-2 flex-shrink-0">
+        <div className="flex items-center justify-end space-x-2 sm:space-x-3 flex-shrink-0">
           {isUserLoading ? (
             <div className="flex items-center gap-2">
               <div className="h-8 w-16 bg-muted rounded-full animate-pulse" />
@@ -114,9 +114,9 @@ export function Header() {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="relative h-9 w-9 rounded-full flex-shrink-0"
+                    className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-full flex-shrink-0"
                   >
-                    <Avatar className="h-9 w-9">
+                    <Avatar className="h-9 w-9 sm:h-10 sm:w-10">
                       <AvatarImage
                         src={user.photoURL ?? ''}
                         alt={user.displayName ?? 'User'}
@@ -154,7 +154,7 @@ export function Header() {
               </DropdownMenu>
             </>
           ) : (
-            <Button onClick={handleGoogleSignIn} className="flex-shrink-0 text-xs sm:text-sm">
+            <Button onClick={handleGoogleSignIn} className="flex-shrink-0 text-xs sm:text-sm rounded-xl sm:rounded-2xl">
               <UserIcon className="mr-1 sm:mr-2 h-4 w-4" />
               Login
             </Button>
