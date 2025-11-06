@@ -53,13 +53,15 @@ export default function BubblePopperPage() {
   const [timeRemaining, setTimeRemaining] = useState(GAME_DURATION_MS / 1000);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameLoopRafRef = useRef<number>();
-  const timerRafRef = useRef<number>();
-  const gameStartTimeRef = useRef(0);
+  const animationFrameRef = useRef<number>();
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const bubblesRef = useRef<Bubble[]>([]);
   const particlesRef = useRef<Particle[]>([]);
+  
+  // Timer Refs
+  const timerRafRef = useRef<number | null>(null);
+  const gameStartTimeRef = useRef<number>(0);
 
   // --- Firebase State ---
   const auth = useAuth();
@@ -88,7 +90,6 @@ export default function BubblePopperPage() {
               xp: 0,
               createdAt: new Date(),
             };
-            // Create the document if it doesn't exist
             await setDoc(userProfileRef, newProfile);
             setUserProfile(newProfile);
           }
@@ -118,7 +119,7 @@ export default function BubblePopperPage() {
     const o = p.createOscillator();
     const g = p.createGain();
     o.connect(g);
-g.connect(p.destination);
+    g.connect(p.destination);
     o.type = 'triangle';
     o.frequency.setValueAtTime(800 + Math.random() * 200, p.currentTime);
     g.gain.setValueAtTime(0.3, p.currentTime);
@@ -141,7 +142,7 @@ g.connect(p.destination);
   }, []);
 
   // --- Game Loop ---
-  const renderLoop = useCallback(() => {
+  const gameLoop = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas) return;
@@ -149,7 +150,7 @@ g.connect(p.destination);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Spawn new bubbles if needed
-    if (gameState === 'playing' && bubblesRef.current.length < 25 && Math.random() < 0.5) {
+    if (gameState === 'playing' && bubblesRef.current.length < 25) {
       const r = 20 + Math.random() * 30;
       bubblesRef.current.push({
         id: bubbleIdCounter++,
@@ -200,69 +201,65 @@ g.connect(p.destination);
         particlesRef.current.splice(i, 1);
       }
     }
-    gameLoopRafRef.current = requestAnimationFrame(renderLoop);
+    animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, [gameState]);
-
+  
   // --- Game State & Timer Management ---
-  const stopGameLoops = useCallback(() => {
-    if (gameLoopRafRef.current) {
-        cancelAnimationFrame(gameLoopRafRef.current);
-        gameLoopRafRef.current = undefined;
-    }
+  const stopTimer = () => {
     if (timerRafRef.current) {
         cancelAnimationFrame(timerRafRef.current);
-        timerRafRef.current = undefined;
+        timerRafRef.current = null;
     }
-  }, []);
+  };
 
   const endGame = useCallback(() => {
     if (gameState !== 'playing') return; // Prevent multiple calls
     setGameState('over');
-    stopGameLoops();
-
+    stopTimer();
     if (user && userProfileRef && score > 0) {
       setDocumentNonBlocking(userProfileRef, { score: increment(score) }, { merge: true });
     }
-  }, [gameState, user, userProfileRef, score, stopGameLoops]);
+  }, [gameState, user, userProfileRef, score]);
 
   const timerLoop = useCallback(() => {
-      const elapsed = performance.now() - gameStartTimeRef.current;
-      const remaining = Math.max(0, GAME_DURATION_MS - elapsed);
-      setTimeRemaining(Math.ceil(remaining / 1000));
-      
-      if (remaining === 0) {
-          endGame();
-      } else {
-          timerRafRef.current = requestAnimationFrame(timerLoop);
-      }
+    const elapsed = performance.now() - gameStartTimeRef.current;
+    const remaining = Math.max(0, GAME_DURATION_MS - elapsed);
+    setTimeRemaining(Math.ceil(remaining / 1000));
+
+    if (remaining === 0) {
+      endGame();
+    } else {
+      timerRafRef.current = requestAnimationFrame(timerLoop);
+    }
   }, [endGame]);
-  
+
   const startGame = useCallback(() => {
     setScore(0);
     setTimeRemaining(GAME_DURATION_MS / 1000);
+    setGameState('playing');
     bubblesRef.current = [];
     particlesRef.current = [];
     bubbleIdCounter = 0;
     
-    stopGameLoops();
-    
+    // Start high-precision timer
     gameStartTimeRef.current = performance.now();
-    setGameState('playing');
-    
-    gameLoopRafRef.current = requestAnimationFrame(renderLoop);
+    if (timerRafRef.current) cancelAnimationFrame(timerRafRef.current);
     timerRafRef.current = requestAnimationFrame(timerLoop);
-  }, [renderLoop, timerLoop, stopGameLoops]);
+  }, [timerLoop]);
   
   const resetGame = useCallback(() => {
-    stopGameLoops();
+    stopTimer();
+    if (animationFrameRef.current)
+      cancelAnimationFrame(animationFrameRef.current);
+    
     setScore(0);
-    setTimeRemaining(GAME_DURATION_MS / 1000);
+    setTimeRemaining(GAME_DURATION_MS / 1000)
     setGameState('ready');
     bubblesRef.current = [];
     particlesRef.current = [];
 
-    gameLoopRafRef.current = requestAnimationFrame(renderLoop);
-  }, [renderLoop, stopGameLoops]);
+    animationFrameRef.current = requestAnimationFrame(gameLoop);
+  }, [gameLoop]);
 
   // --- Canvas Setup & Resize ---
   useEffect(() => {
@@ -279,13 +276,14 @@ g.connect(p.destination);
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    gameLoopRafRef.current = requestAnimationFrame(renderLoop);
+    animationFrameRef.current = requestAnimationFrame(gameLoop);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
-      stopGameLoops();
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      stopTimer();
     };
-  }, [renderLoop, stopGameLoops]);
+  }, [gameLoop]);
 
   // --- Input Handling ---
   const handlePop = useCallback(
@@ -320,19 +318,6 @@ g.connect(p.destination);
     [gameState, playPopSound, createParticles]
   );
 
-  // --- Auth Functions ---
-  const handleGoogleSignIn = async () => {
-    if (!auth) return;
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error: any) {
-      if (error.code !== 'auth/popup-closed-by-user') {
-        console.error('Google Sign-In error:', error);
-      }
-    }
-  };
-  
   const displayScore = user ? userProfile?.score ?? '...' : score;
 
 
