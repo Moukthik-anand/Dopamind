@@ -442,5 +442,3 @@ g.connect(p.destination);
     </div>
   );
 }
-
-    
