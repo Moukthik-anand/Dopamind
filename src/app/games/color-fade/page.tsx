@@ -233,12 +233,6 @@ export default function ColorFadePage() {
                       <RefreshCw className="mr-2 h-4 w-4" />
                       Play Again
                     </Button>
-                     <Button asChild variant="secondary" size="lg">
-                        <Link href="/">
-                          <ArrowLeft className="mr-2 h-4 w-4" />
-                          Back to Games
-                        </Link>
-                     </Button>
                   </div>
                 </motion.div>
               )}
@@ -264,7 +258,7 @@ export default function ColorFadePage() {
       </Card>
       {gameState === 'playing' && (
         <div className="mt-4">
-            <Button onClick={() => endGame()} variant="destructive" className="bg-red-500/80 hover:bg-red-500">
+            <Button onClick={() => endGame()} variant="secondary">
                 <XCircle className="mr-2 h-4 w-4" />
                 End Game
             </Button>
