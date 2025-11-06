@@ -25,7 +25,7 @@ import type { UserProfile } from '@/lib/types';
 
 // --- Constants ---
 type GameState = 'ready' | 'playing' | 'over';
-const GAME_DURATION = 60; // seconds
+const GAME_DURATION_MS = 60000; // 60 seconds
 
 interface Bubble {
   id: number;
@@ -50,11 +50,12 @@ let bubbleIdCounter = 0;
 export default function BubblePopperPage() {
   const [gameState, setGameState] = useState<GameState>('ready');
   const [score, setScore] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(GAME_DURATION);
+  const [timeRemaining, setTimeRemaining] = useState(GAME_DURATION_MS / 1000);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameRef = useRef<number>();
-  const timerIntervalRef = useRef<NodeJS.Timeout>();
+  const gameLoopRafRef = useRef<number>();
+  const timerRafRef = useRef<number>();
+  const gameStartTimeRef = useRef(0);
   const audioContextRef = useRef<AudioContext | null>(null);
 
   const bubblesRef = useRef<Bubble[]>([]);
@@ -140,7 +141,7 @@ g.connect(p.destination);
   }, []);
 
   // --- Game Loop ---
-  const gameLoop = useCallback(() => {
+  const renderLoop = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx || !canvas) return;
@@ -148,7 +149,7 @@ g.connect(p.destination);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     // Spawn new bubbles if needed
-    if (gameState === 'playing' && bubblesRef.current.length < 25) {
+    if (gameState === 'playing' && bubblesRef.current.length < 25 && Math.random() < 0.5) {
       const r = 20 + Math.random() * 30;
       bubblesRef.current.push({
         id: bubbleIdCounter++,
@@ -199,53 +200,69 @@ g.connect(p.destination);
         particlesRef.current.splice(i, 1);
       }
     }
-    animationFrameRef.current = requestAnimationFrame(gameLoop);
+    gameLoopRafRef.current = requestAnimationFrame(renderLoop);
   }, [gameState]);
 
-    // --- Game State & Timer Management ---
+  // --- Game State & Timer Management ---
+  const stopGameLoops = useCallback(() => {
+    if (gameLoopRafRef.current) {
+        cancelAnimationFrame(gameLoopRafRef.current);
+        gameLoopRafRef.current = undefined;
+    }
+    if (timerRafRef.current) {
+        cancelAnimationFrame(timerRafRef.current);
+        timerRafRef.current = undefined;
+    }
+  }, []);
+
   const endGame = useCallback(() => {
     if (gameState !== 'playing') return; // Prevent multiple calls
     setGameState('over');
-    if (timerIntervalRef.current) {
-        clearInterval(timerIntervalRef.current);
-    }
+    stopGameLoops();
+
     if (user && userProfileRef && score > 0) {
       setDocumentNonBlocking(userProfileRef, { score: increment(score) }, { merge: true });
     }
-  }, [gameState, user, userProfileRef, score]);
+  }, [gameState, user, userProfileRef, score, stopGameLoops]);
 
+  const timerLoop = useCallback(() => {
+      const elapsed = performance.now() - gameStartTimeRef.current;
+      const remaining = Math.max(0, GAME_DURATION_MS - elapsed);
+      setTimeRemaining(Math.ceil(remaining / 1000));
+      
+      if (remaining === 0) {
+          endGame();
+      } else {
+          timerRafRef.current = requestAnimationFrame(timerLoop);
+      }
+  }, [endGame]);
+  
   const startGame = useCallback(() => {
     setScore(0);
-    setTimeRemaining(GAME_DURATION);
-    setGameState('playing');
+    setTimeRemaining(GAME_DURATION_MS / 1000);
     bubblesRef.current = [];
     particlesRef.current = [];
     bubbleIdCounter = 0;
-
-    timerIntervalRef.current = setInterval(() => {
-      setTimeRemaining((prevTime) => {
-        if (prevTime <= 1) {
-          endGame();
-          return 0;
-        }
-        return prevTime - 1;
-      });
-    }, 1000);
-  }, [endGame]);
+    
+    stopGameLoops();
+    
+    gameStartTimeRef.current = performance.now();
+    setGameState('playing');
+    
+    gameLoopRafRef.current = requestAnimationFrame(renderLoop);
+    timerRafRef.current = requestAnimationFrame(timerLoop);
+  }, [renderLoop, timerLoop, stopGameLoops]);
   
   const resetGame = useCallback(() => {
-    if (animationFrameRef.current)
-      cancelAnimationFrame(animationFrameRef.current);
-    if(timerIntervalRef.current) clearInterval(timerIntervalRef.current)
-
+    stopGameLoops();
     setScore(0);
-    setTimeRemaining(GAME_DURATION)
+    setTimeRemaining(GAME_DURATION_MS / 1000);
     setGameState('ready');
     bubblesRef.current = [];
     particlesRef.current = [];
 
-    animationFrameRef.current = requestAnimationFrame(gameLoop);
-  }, [gameLoop]);
+    gameLoopRafRef.current = requestAnimationFrame(renderLoop);
+  }, [renderLoop, stopGameLoops]);
 
   // --- Canvas Setup & Resize ---
   useEffect(() => {
@@ -262,14 +279,13 @@ g.connect(p.destination);
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    animationFrameRef.current = requestAnimationFrame(gameLoop);
+    gameLoopRafRef.current = requestAnimationFrame(renderLoop);
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      stopGameLoops();
     };
-  }, [gameLoop]);
+  }, [renderLoop, stopGameLoops]);
 
   // --- Input Handling ---
   const handlePop = useCallback(
@@ -367,7 +383,7 @@ g.connect(p.destination);
                       Pop the Bubbles!
                     </h2>
                     <p className="text-white mb-4">
-                      You have {GAME_DURATION} seconds. Go!
+                      You have {GAME_DURATION_MS / 1000} seconds. Go!
                     </p>
                     <Button onClick={startGame} size="lg">
                       Start Game
@@ -418,3 +434,5 @@ g.connect(p.destination);
     </div>
   );
 }
+
+    
