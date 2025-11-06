@@ -28,6 +28,7 @@ import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
 import { motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
 
 export function Header() {
   const [randomGamePath, setRandomGamePath] = useState('');
@@ -72,7 +73,7 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/30 backdrop-blur-lg supports-[backdrop-filter]:bg-background/30">
       <div className="container flex h-16 items-center">
-        <Link href="/" className="mr-6 flex items-center space-x-2">
+        <Link href="/" className="mr-auto md:mr-6 flex items-center space-x-2">
           <BrainCircuit className="h-6 w-6 text-primary" />
            <motion.span
             className="font-bold font-headline sm:inline-block text-foreground"
@@ -89,7 +90,7 @@ export function Header() {
             Dopamind
           </motion.span>
         </Link>
-        <nav className="flex items-center gap-4 text-sm font-medium">
+        <nav className="hidden md:flex items-center gap-4 text-sm font-medium">
           <Button variant="ghost" asChild>
             <Link href={randomGamePath || '/'}>
               <Dices className="mr-2" />
@@ -97,7 +98,7 @@ export function Header() {
             </Link>
           </Button>
         </nav>
-        <div className="flex flex-1 items-center justify-end space-x-2 md:space-x-4">
+        <div className="flex items-center justify-end space-x-2 md:space-x-4 ml-auto">
           {isUserLoading ? (
             <div className="flex items-center gap-4">
               <div className="h-8 w-16 bg-muted rounded-full animate-pulse" />
@@ -105,7 +106,7 @@ export function Header() {
             </div>
           ) : user ? (
             <>
-              <div className="flex items-center gap-2 rounded-full border border-white/20 bg-black/10 px-3 py-1 text-sm font-medium">
+              <div className="hidden sm:flex items-center gap-2 rounded-full border border-white/20 bg-black/10 px-3 py-1 text-sm font-medium">
                 <Star className="h-4 w-4 text-yellow-400" />
                 <span>{userProfile?.score ?? 0}</span>
               </div>
@@ -138,9 +139,13 @@ export function Header() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="my-2" />
+                   <DropdownMenuItem className="sm:hidden w-full justify-start rounded-md bg-gray-100/50 dark:bg-gray-800/50 font-medium text-[#222] dark:text-gray-200 p-2 cursor-default">
+                    <Star className="mr-2 h-4 w-4" />
+                    <span>Score: {userProfile?.score ?? 0}</span>
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={handleSignOut}
-                    className="w-full justify-center rounded-md bg-gray-100 dark:bg-gray-800 font-medium text-[#222] dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 focus:bg-gray-200 dark:focus:bg-gray-700 p-2 cursor-pointer"
+                    className="w-full justify-center rounded-md bg-gray-100 dark:bg-gray-800 font-medium text-[#222] dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 focus:bg-gray-200 dark:focus:bg-gray-700 p-2 cursor-pointer mt-2"
                   >
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Log out</span>
