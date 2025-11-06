@@ -21,9 +21,9 @@ const NORMAL_COLORS = [
   { name: 'Red', value: 'red' }, { name: 'Orange', value: 'orange' },
   { name: 'Yellow', value: 'yellow' }, { name: 'Green', value: 'green' },
   { name: 'Blue', value: 'blue' }, { name: 'Purple', value: 'purple' },
-  { name: 'Pink', value: 'pink' }, { name: 'Teal', value: 'teal' },
-  { name: 'White', value: 'white' }, { name: 'Black', value: 'black' },
-  { name: 'Brown', value: 'brown' }, { name: 'Gray', value: 'gray' },
+  { name: 'Pink', value: 'pink' }, { name: 'Brown', value: 'brown' },
+  { name: 'Gray', value: 'gray' }, { name: 'White', value: 'white' },
+  { name: 'Black', value: 'black' }, { name: 'Teal', value: 'teal' },
   { name: 'Cyan', value: 'cyan' }, { name: 'Lime', value: 'lime' },
   { name: 'Gold', value: 'gold' }, { name: 'Navy', value: 'navy' },
   { name: 'Maroon', value: 'maroon' }, { name: 'Silver', value: 'silver' },
@@ -273,3 +273,5 @@ export default function ColorFadePage() {
     </div>
   );
 }
+
+    

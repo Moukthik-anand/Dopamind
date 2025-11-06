@@ -19,6 +19,13 @@ export const games: Game[] = [
     icon: Palette,
     path: '/games/color-fade',
   },
+   {
+    id: 'catch-the-calm',
+    title: 'Catch the Calm',
+    description: 'Move to collect calm, avoid stress.',
+    icon: Droplets,
+    path: '/games/catch-the-calm',
+  },
   {
     id: 'breathe-with-me',
     title: 'Breathe With Me',
@@ -47,11 +54,6 @@ export const games: Game[] = [
     icon: Waves,
     path: '/games/ripple-touch',
   },
-  {
-    id: 'catch-the-calm',
-    title: 'Catch the Calm',
-    description: 'Move to collect calm, avoid stress.',
-    icon: Droplets,
-    path: '/games/catch-the-calm',
-  }
 ];
+
+    
