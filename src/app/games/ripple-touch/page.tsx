@@ -103,42 +103,35 @@ export default function RippleTouchPage() {
     };
   }, [gameLoop]);
 
-  const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const getCoordinates = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
-    const events = 'touches' in e.nativeEvent ? e.nativeEvent.touches : [e.nativeEvent];
-    const coords = [];
-    for (let i = 0; i < events.length; i++) {
-        const event = events[i];
-        coords.push({
-            x: event.clientX - rect.left,
-            y: event.clientY - rect.top,
-        });
-    }
-    return coords;
+    return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+    };
   }
 
-  const handleStart = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     setIsDrawing(true);
     if (showHint) setShowHint(false);
-    const coords = getCoordinates(e);
-    coords.forEach(coord => createRipple(coord.x, coord.y));
+    const coord = getCoordinates(e);
+    createRipple(coord.x, coord.y);
     lastRippleTimeRef.current = Date.now();
   };
   
-  const handleMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing) return;
-    e.preventDefault(); 
     
     const now = Date.now();
     if (now - lastRippleTimeRef.current > 100) { 
-      const coords = getCoordinates(e);
-      coords.forEach(coord => createRipple(coord.x, coord.y));
+      const coord = getCoordinates(e);
+      createRipple(coord.x, coord.y);
       lastRippleTimeRef.current = now;
     }
   };
 
-  const handleEnd = () => {
+  const handlePointerUp = () => {
     setIsDrawing(false);
   };
 
@@ -151,13 +144,11 @@ export default function RippleTouchPage() {
             <canvas
               ref={canvasRef}
               className="w-full h-full cursor-pointer bg-gradient-to-br from-[#a78bfa] to-[#93c5fd]"
-              onMouseDown={handleStart}
-              onTouchStart={handleStart}
-              onMouseMove={handleMove}
-              onTouchMove={handleMove}
-              onMouseUp={handleEnd}
-              onMouseLeave={handleEnd}
-              onTouchEnd={handleEnd}
+              style={{ touchAction: 'none' }}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerUp}
             />
             <AnimatePresence>
                 {showHint && (

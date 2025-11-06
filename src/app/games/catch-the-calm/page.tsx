@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { RefreshCw, StopCircle, HeartCrack, Plus, Minus } from 'lucide-react';
+import { RefreshCw, StopCircle, HeartCrack } from 'lucide-react';
 import { useUser, useFirestore, useMemoFirebase } from '@/firebase';
 import { doc, increment } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -46,6 +46,8 @@ const MAX_STRESS_HITS = 10;
 const XP_PER_CALM = 10;
 const XP_PENALTY_PER_STRESS = -50;
 
+const STRESS_SPAWN_CHANCE = 0.50; // Increased from 0.35
+const STRESS_SPEED_MULTIPLIER = 1.8; // Increased from 1.5
 
 let orbIdCounter = 0;
 let textIdCounter = 0;
@@ -86,9 +88,11 @@ export default function CatchTheCalmPage() {
 
   // --- Scroll Lock ---
   useEffect(() => {
-    const originalStyle = window.getComputedStyle(document.body).overflow;
+    const originalStyle = document.body.style.overflow;
     if (gameState === 'playing') {
       document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = originalStyle;
     }
     return () => {
       document.body.style.overflow = originalStyle;
@@ -128,9 +132,9 @@ export default function CatchTheCalmPage() {
 
     // Spawn new orbs
     if (gameState === 'playing' && Math.random() < 0.06 && orbsRef.current.length < 25) {
-      const isStress = Math.random() < 0.35; // 35% chance for a stress orb
+      const isStress = Math.random() < STRESS_SPAWN_CHANCE;
       const baseSpeed = 2.5 + Math.random() * 2;
-      const speed = isStress ? baseSpeed * 1.5 : baseSpeed;
+      const speed = isStress ? baseSpeed * STRESS_SPEED_MULTIPLIER : baseSpeed;
 
       orbsRef.current.push({
         id: orbIdCounter++,
@@ -274,10 +278,7 @@ export default function CatchTheCalmPage() {
         playerRef.current.x = Math.max(0, Math.min(targetX, canvas.width - playerRef.current.width));
     };
 
-    const handleMouseMove = (e: MouseEvent) => movePlayer(e.clientX);
-    const handleTouchMove = (e: TouchEvent) => {
-        if(e.touches[0]) movePlayer(e.touches[0].clientX);
-    };
+    const handlePointerMove = (e: PointerEvent) => movePlayer(e.clientX);
     
     const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === 'ArrowLeft') {
@@ -293,15 +294,13 @@ export default function CatchTheCalmPage() {
           cancelAnimationFrame(animationFrameRef.current);
         }
       } else {
-        // Only resume if we are in the 'playing' state
         if (gameState === 'playing') {
           animationFrameRef.current = requestAnimationFrame(gameLoop);
         }
       }
     };
 
-    canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('touchmove', handleTouchMove, { passive: true });
+    canvas.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('keydown', handleKeyDown);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -309,8 +308,7 @@ export default function CatchTheCalmPage() {
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
-      canvas.removeEventListener('mousemove', handleMouseMove);
-      canvas.removeEventListener('touchmove', handleTouchMove);
+      canvas.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
@@ -338,6 +336,7 @@ export default function CatchTheCalmPage() {
             <canvas
               ref={canvasRef}
               className="w-full h-full cursor-pointer bg-gradient-to-br from-[#a78bfa] to-[#93c5fd]"
+              style={{ touchAction: 'none' }}
             />
             
             <AnimatePresence>
