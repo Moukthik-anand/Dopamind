@@ -1,5 +1,6 @@
+
 import type { LucideIcon } from 'lucide-react';
-import { CircleDashed, Wind, Brain, Brush, Waves, Droplets } from 'lucide-react';
+import { CircleDashed, Wind, Brain, Brush, Waves, Droplets, Palette } from 'lucide-react';
 
 export interface Game {
   id: string;
@@ -12,10 +13,10 @@ export interface Game {
 
 export const games: Game[] = [
   {
-    id: 'bubble-popper',
-    title: 'Bubble Popper',
-    description: 'Tap to pop bubbles. So satisfying.',
-    icon: CircleDashed,
+    id: 'color-fade',
+    title: 'Color Fade',
+    description: 'Tap when the color matches. A test of timing.',
+    icon: Palette,
     path: '/games/bubble-popper',
   },
   {
@@ -54,3 +55,5 @@ export const games: Game[] = [
     path: '/games/catch-the-calm',
   }
 ];
+
+    
