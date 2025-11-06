@@ -17,6 +17,7 @@ export function GameCard({ game }: GameCardProps) {
     <motion.div
       whileHover={{ scale: 1.03, rotate: game.comingSoon ? 0 : -2 }}
       transition={{ type: 'spring', stiffness: 300, damping: 15 }}
+      className="game-card"
     >
       <Card className={cn("flex flex-col transition-all shadow-lg border border-black/5 dark:border-white/5", game.comingSoon && "opacity-60")}>
         <CardHeader>

@@ -67,6 +67,11 @@
     @apply bg-background text-foreground;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
+
+  html, body {
+    overflow-x: hidden;
+    width: 100vw;
+  }
 }
 
 @layer utilities {
@@ -107,4 +112,19 @@
     background: linear-gradient(-45deg, hsl(var(--background)), #1e1b4b, #4338ca, #312e81);
     background-size: 400% 400%;
     animation: gradient 25s ease infinite;
+}
+
+
+/* Mobile alignment fixes */
+@media (max-width: 480px) {
+  main, section {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    margin: 0 auto !important;
+  }
+  
+  .game-card {
+    margin: 12px auto !important;
+    width: 94% !important;
+  }
 }
