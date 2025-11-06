@@ -14,8 +14,7 @@ const icons = [
 ].map(name => {
   const IconComponent = (LucideIcons as any)[name];
   if (!IconComponent) {
-    console.warn(`Icon "${name}" not found in lucide-react. Check for typos.`);
-    // Return a placeholder or default icon if needed
+    // Fallback for icons that might not exist
     return { name, icon: LucideIcons.HelpCircle };
   }
   return { name, icon: IconComponent as React.ComponentType<{ className: string }> };
@@ -162,10 +161,10 @@ export default function MemoryFlipPage() {
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm rounded-lg"
+                  className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm rounded-lg text-center p-4"
                 >
                   <h2 className="text-3xl font-bold text-white mb-2">You Win!</h2>
-                  <p className="text-xl text-white mb-4">You found all pairs in {moves} moves.</p>
+                  <p className="text-xl text-white mb-6">You found all pairs in {moves} moves.</p>
                   <Button onClick={resetGame} size="lg">
                     <RefreshCw className="mr-2 h-4 w-4" /> Play Again
                   </Button>
@@ -178,3 +177,5 @@ export default function MemoryFlipPage() {
     </div>
   );
 }
+
+    

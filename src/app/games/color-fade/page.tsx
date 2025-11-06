@@ -14,27 +14,29 @@ import * as Tone from 'tone';
 
 const FADE_DURATION_MS = 1200;
 const TOTAL_ROUNDS = 10;
+const XP_PER_CORRECT = 150;
+const XP_PER_INCORRECT = -20;
 
 // 18 recognizable colors for names and backgrounds
 const NORMAL_COLORS = [
-  { name: 'Red', value: 'red' }, { name: 'Orange', value: 'orange' },
-  { name: 'Yellow', value: 'yellow' }, { name: 'Green', value: 'green' },
-  { name: 'Blue', value: 'blue' }, { name: 'Purple', value: 'purple' },
-  { name: 'Pink', value: 'pink' }, { name: 'Teal', value: 'teal' },
-  { name: 'White', value: 'white' }, { name: 'Black', value: 'black' },
-  { name: 'Brown', value: 'brown' }, { name: 'Gray', value: 'gray' },
-  { name: 'Cyan', value: 'cyan' }, { name: 'Lime', value: 'lime' },
-  { name: 'Gold', value: 'gold' }, { name: 'Navy', value: 'navy' },
-  { name: 'Maroon', value: 'maroon' }, { name: 'Silver', value: 'silver' },
+    { name: 'Red', value: 'red' }, { name: 'Orange', value: 'orange' },
+    { name: 'Yellow', value: 'yellow' }, { name: 'Green', value: 'green' },
+    { name: 'Blue', value: 'blue' }, { name: 'Purple', value: 'purple' },
+    { name: 'Pink', value: 'pink' }, { name: 'Teal', value: 'teal' },
+    { name: 'White', value: 'white' }, { name: 'Black', value: 'black' },
+    { name: 'Brown', value: 'brown' }, { name: 'Gray', value: 'gray' },
+    { name: 'Cyan', value: 'cyan' }, { name: 'Lime', value: 'lime' },
+    { name: 'Gold', value: 'gold' }, { name: 'Navy', value: 'navy' },
+    { name: 'Maroon', value: 'maroon' }, { name: 'Silver', value: 'silver' },
 ];
 
 // 10 confusing shades for background only
 const SHADE_COLORS = [
-  { name: 'PeachPuff', value: '#FFDAB9' }, { name: 'PowderBlue', value: '#B0E0E6' },
-  { name: 'Lavender', value: '#E6E6FA' }, { name: 'LightGreen', value: '#C1FFC1' },
-  { name: 'LemonChiffon', value: '#FFFACD' }, { name: 'Salmon', value: '#FA8072' },
-  { name: 'LightCyan', value: '#E0FFFF' }, { name: 'HotPink', value: '#FF69B4' },
-  { name: 'Wheat', value: '#F5DEB3' }, { name: 'SlateGray', value: '#708090' },
+    { name: 'PeachPuff', value: '#FFDAB9' }, { name: 'PowderBlue', value: '#B0E0E6' },
+    { name: 'Lavender', value: '#E6E6FA' }, { name: 'LightGreen', value: '#90EE90' },
+    { name: 'LemonChiffon', value: '#FFFACD' }, { name: 'Salmon', value: '#FA8072' },
+    { name: 'LightCyan', value: '#E0FFFF' }, { name: 'HotPink', value: '#FF69B4' },
+    { name: 'Wheat', value: '#F5DEB3' }, { name: 'SlateGray', value: '#708090' },
 ];
 
 const ALL_BACKGROUND_COLORS = [...NORMAL_COLORS, ...SHADE_COLORS];
@@ -56,7 +58,6 @@ export default function ColorFadePage() {
   const [shuffledBgColors, setShuffledBgColors] = useState(() => shuffleArray([...ALL_BACKGROUND_COLORS]));
   const [round, setRound] = useState(0);
   
-  // Target color only comes from normal, recognizable colors
   const [targetColor, setTargetColor] = useState(NORMAL_COLORS[0]);
 
   const { user } = useUser();
@@ -112,13 +113,16 @@ export default function ColorFadePage() {
     
     let xpChange = 0;
     if (isMatch) {
-      xpChange = 50;
+      xpChange = XP_PER_CORRECT;
       setCorrectMatches(prev => prev + 1);
       if (correctMatches + 1 < TOTAL_ROUNDS) {
         getNextTarget();
       }
+      if (userProfileRef) {
+        setDocumentNonBlocking(userProfileRef, { xp: increment(xpChange), score: increment(xpChange) }, { merge: true });
+      }
     } else {
-      xpChange = -20;
+      xpChange = XP_PER_INCORRECT;
     }
     setXp(prev => Math.max(0, prev + xpChange));
 
@@ -138,16 +142,12 @@ export default function ColorFadePage() {
     setXp(0);
     const newShuffledBgColors = shuffleArray([...ALL_BACKGROUND_COLORS]);
     setShuffledBgColors(newShuffledBgColors);
-    // Ensure target is from normal colors
     setTargetColor(NORMAL_COLORS[Math.floor(Math.random() * NORMAL_COLORS.length)]);
   };
   
   const endGame = useCallback((early = false) => {
     setGameState('over');
-    if (userProfileRef && xp > 0 && !early) {
-        setDocumentNonBlocking(userProfileRef, { xp: increment(xp), score: increment(xp) }, { merge: true });
-    }
-  }, [userProfileRef, xp]);
+  }, []);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -218,7 +218,7 @@ export default function ColorFadePage() {
                   className="bg-black/60 backdrop-blur-sm p-8 rounded-2xl text-white"
                 >
                   <h3 className="text-3xl font-bold">
-                    {correctMatches >= TOTAL_ROUNDS ? '🎨 Challenge Complete!' : 'Game Ended!'}
+                    {correctMatches >= TOTAL_ROUNDS ? 'You Won!' : 'Game Ended!'}
                   </h3>
                    {correctMatches >= TOTAL_ROUNDS ? (
                     <>
@@ -271,3 +271,5 @@ export default function ColorFadePage() {
     </div>
   );
 }
+
+    
