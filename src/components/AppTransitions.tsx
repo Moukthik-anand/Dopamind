@@ -10,13 +10,14 @@ export function AppTransitions({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // On initial load, if the user is on a game page, redirect to home.
-    if (typeof window !== 'undefined' && window.performance.getEntriesByType("navigation")[0].type === 'reload' || window.performance.getEntriesByType("navigation")[0].type === 'navigate') {
-        if (pathname.startsWith('/games/')) {
-            router.replace('/');
-        }
+    const navigationEntries = window.performance.getEntriesByType('navigation');
+    if (navigationEntries.length > 0 && (navigationEntries[0] as PerformanceNavigationTiming).type === 'reload') {
+      if (pathname.startsWith('/games/')) {
+        router.replace('/');
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only once on initial component mount
+  }, [pathname]); // Depend on pathname to re-evaluate on route change
 
   return (
     <AnimatePresence mode="wait">

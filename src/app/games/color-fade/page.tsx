@@ -17,26 +17,24 @@ const TOTAL_ROUNDS = 10;
 const XP_PER_CORRECT = 150;
 const XP_PER_INCORRECT = -20;
 
-// 18 recognizable colors for names and backgrounds
 const NORMAL_COLORS = [
-    { name: 'Red', value: 'red' }, { name: 'Orange', value: 'orange' },
-    { name: 'Yellow', value: 'yellow' }, { name: 'Green', value: 'green' },
-    { name: 'Blue', value: 'blue' }, { name: 'Purple', value: 'purple' },
-    { name: 'Pink', value: 'pink' }, { name: 'Teal', value: 'teal' },
-    { name: 'White', value: 'white' }, { name: 'Black', value: 'black' },
-    { name: 'Brown', value: 'brown' }, { name: 'Gray', value: 'gray' },
-    { name: 'Cyan', value: 'cyan' }, { name: 'Lime', value: 'lime' },
-    { name: 'Gold', value: 'gold' }, { name: 'Navy', value: 'navy' },
-    { name: 'Maroon', value: 'maroon' }, { name: 'Silver', value: 'silver' },
+  { name: 'Red', value: 'red' }, { name: 'Orange', value: 'orange' },
+  { name: 'Yellow', value: 'yellow' }, { name: 'Green', value: 'green' },
+  { name: 'Blue', value: 'blue' }, { name: 'Purple', value: 'purple' },
+  { name: 'Pink', value: 'pink' }, { name: 'Teal', value: 'teal' },
+  { name: 'White', value: 'white' }, { name: 'Black', value: 'black' },
+  { name: 'Brown', value: 'brown' }, { name: 'Gray', value: 'gray' },
+  { name: 'Cyan', value: 'cyan' }, { name: 'Lime', value: 'lime' },
+  { name: 'Gold', value: 'gold' }, { name: 'Navy', value: 'navy' },
+  { name: 'Maroon', value: 'maroon' }, { name: 'Silver', value: 'silver' },
 ];
 
-// 10 confusing shades for background only
 const SHADE_COLORS = [
-    { name: 'PeachPuff', value: '#FFDAB9' }, { name: 'PowderBlue', value: '#B0E0E6' },
-    { name: 'Lavender', value: '#E6E6FA' }, { name: 'LightGreen', value: '#90EE90' },
-    { name: 'LemonChiffon', value: '#FFFACD' }, { name: 'Salmon', value: '#FA8072' },
-    { name: 'LightCyan', value: '#E0FFFF' }, { name: 'HotPink', value: '#FF69B4' },
-    { name: 'Wheat', value: '#F5DEB3' }, { name: 'SlateGray', value: '#708090' },
+  { name: 'PeachPuff', value: '#FFDAB9' }, { name: 'PowderBlue', value: '#B0E0E6' },
+  { name: 'Lavender', value: '#E6E6FA' }, { name: 'LightGreen', value: '#90EE90' },
+  { name: 'LemonChiffon', value: '#FFFACD' }, { name: 'Salmon', value: '#FA8072' },
+  { name: 'LightCyan', value: '#E0FFFF' }, { name: 'HotPink', value: '#FF69B4' },
+  { name: 'Wheat', value: '#F5DEB3' }, { name: 'SlateGray', value: '#708090' },
 ];
 
 const ALL_BACKGROUND_COLORS = [...NORMAL_COLORS, ...SHADE_COLORS];
@@ -53,7 +51,8 @@ export default function ColorFadePage() {
   const [gameState, setGameState] = useState<'ready' | 'playing' | 'over'>('ready');
   const [correctMatches, setCorrectMatches] = useState(0);
   const [xp, setXp] = useState(0);
-  const [feedback, setFeedback] = useState<{ type: 'correct' | 'incorrect' | null, text: string, x: number, y: number, key: number }>({ type: null, text: '', x: 0, y: 0, key: 0 });
+  const [moves, setMoves] = useState(0);
+  const [feedback, setFeedback] = useState<{ text: string, x: number, y: number, key: number } | null>(null);
   
   const [shuffledBgColors, setShuffledBgColors] = useState(() => shuffleArray([...ALL_BACKGROUND_COLORS]));
   const [round, setRound] = useState(0);
@@ -107,27 +106,26 @@ export default function ColorFadePage() {
   const handleTap = (e: React.MouseEvent<HTMLDivElement>) => {
     if (gameState !== 'playing') return;
 
+    setMoves(prev => prev + 1);
     const currentColor = shuffledBgColors[round % shuffledBgColors.length];
     const isMatch = currentColor.name === targetColor.name;
     playSound(isMatch);
     
-    let xpChange = 0;
-    if (isMatch) {
-      xpChange = XP_PER_CORRECT;
-      setCorrectMatches(prev => prev + 1);
-      if (correctMatches + 1 < TOTAL_ROUNDS) {
-        getNextTarget();
-      }
-      if (userProfileRef) {
-        setDocumentNonBlocking(userProfileRef, { xp: increment(xpChange), score: increment(xpChange) }, { merge: true });
-      }
-    } else {
-      xpChange = XP_PER_INCORRECT;
-    }
-    setXp(prev => Math.max(0, prev + xpChange));
+    let xpChange = isMatch ? XP_PER_CORRECT : XP_PER_INCORRECT;
 
+    setXp(prev => Math.max(0, prev + xpChange));
+    if (userProfileRef) {
+        setDocumentNonBlocking(userProfileRef, { xp: increment(xpChange), score: increment(xpChange) }, { merge: true });
+    }
+
+    if (isMatch) {
+        setCorrectMatches(prev => prev + 1);
+        if (correctMatches + 1 < TOTAL_ROUNDS) {
+            getNextTarget();
+        }
+    }
+    
     setFeedback({
-      type: isMatch ? 'correct' : 'incorrect',
       text: `${xpChange > 0 ? '+' : ''}${xpChange} XP`,
       x: e.clientX,
       y: e.clientY,
@@ -140,12 +138,13 @@ export default function ColorFadePage() {
     setCorrectMatches(0);
     setRound(0);
     setXp(0);
+    setMoves(0);
     const newShuffledBgColors = shuffleArray([...ALL_BACKGROUND_COLORS]);
     setShuffledBgColors(newShuffledBgColors);
     setTargetColor(NORMAL_COLORS[Math.floor(Math.random() * NORMAL_COLORS.length)]);
   };
   
-  const endGame = useCallback((early = false) => {
+  const endGame = useCallback(() => {
     setGameState('over');
   }, []);
 
@@ -166,14 +165,14 @@ export default function ColorFadePage() {
   const currentColor = shuffledBgColors[round % shuffledBgColors.length];
 
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-4">
       <h1 className="text-4xl font-bold font-headline">Color Fade</h1>
       <Card className="w-full max-w-lg text-center overflow-hidden">
         <CardContent className="p-0">
           <div className="relative w-full h-[60vh] cursor-pointer overflow-hidden" onClick={handleTap} style={{ backgroundColor: gameState === 'playing' ? currentColor.value : '#E8DAEF', transition: `background-color ${FADE_DURATION_MS}ms ease-in-out` }}>
             
             <AnimatePresence>
-              {feedback.text && (
+              {feedback && (
                 <motion.div
                   key={feedback.key}
                   className="absolute pointer-events-none text-white font-bold"
@@ -181,7 +180,7 @@ export default function ColorFadePage() {
                   animate={{ opacity: 0, y: feedback.y - 50 }}
                   transition={{ duration: 1.5 }}
                   style={{
-                    color: feedback.type === 'correct' ? '#c7d2fe' : '#fca5a5',
+                    color: feedback.text.startsWith('+') ? '#c7d2fe' : '#fca5a5',
                     textShadow: '0 0 5px rgba(0,0,0,0.5)',
                   }}
                 >
@@ -209,6 +208,7 @@ export default function ColorFadePage() {
                 >
                   <p className="text-white text-lg font-medium pointer-events-none" style={{textShadow: '0 0 8px rgba(0,0,0,0.4)'}}>Tap when screen is</p>
                   <h3 className="text-5xl font-bold text-white pointer-events-none" style={{textShadow: '0 0 10px rgba(0,0,0,0.6)'}}>{targetColor.name}</h3>
+                   <p className="text-white/80 text-md font-medium mt-2 pointer-events-none" style={{textShadow: '0 0 8px rgba(0,0,0,0.4)'}}>Moves: {moves}</p>
                 </motion.div>
               )}
               {gameState === 'over' && (
@@ -218,15 +218,15 @@ export default function ColorFadePage() {
                   className="bg-black/60 backdrop-blur-sm p-8 rounded-2xl text-white"
                 >
                   <h3 className="text-3xl font-bold">
-                    {correctMatches >= TOTAL_ROUNDS ? 'You Won!' : 'Game Ended!'}
+                    {correctMatches >= TOTAL_ROUNDS ? 'Challenge Complete!' : 'Game Ended!'}
                   </h3>
                    {correctMatches >= TOTAL_ROUNDS ? (
                     <>
-                      <p className="mt-2 text-lg">You matched {TOTAL_ROUNDS} colors!</p>
-                      <p className="mt-2 text-lg">You scored <span className="font-bold text-yellow-300">{xp}</span> calm XP.</p>
+                       <p className="mt-2 text-lg">You matched {TOTAL_ROUNDS} colors in {moves} moves.</p>
+                       <p className="mt-2 text-lg">You earned <span className="font-bold text-yellow-300">{xp}</span> calm XP.</p>
                     </>
                    ) : (
-                    <p className="mt-2 text-lg">You ended early after {correctMatches} correct matches.</p>
+                    <p className="mt-2 text-lg">You ended early after {moves} moves with {correctMatches} correct matches.</p>
                    )}
                   <div className="flex justify-center items-center gap-4 mt-6">
                     <Button onClick={startGame} size="lg">
@@ -257,19 +257,19 @@ export default function ColorFadePage() {
                     <div className="absolute top-2 left-2 bg-black/30 text-white font-bold p-2 rounded-lg text-sm">
                         Round: {correctMatches} / {TOTAL_ROUNDS}
                     </div>
-                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-                        <Button onClick={() => endGame(true)} variant="destructive" className="bg-red-500/80 hover:bg-red-500">
-                            <XCircle className="mr-2 h-4 w-4" />
-                            End Game
-                        </Button>
-                    </div>
                 </>
             )}
           </div>
         </CardContent>
       </Card>
+      {gameState === 'playing' && (
+        <div className="mt-4">
+            <Button onClick={() => endGame()} variant="destructive" className="bg-red-500/80 hover:bg-red-500">
+                <XCircle className="mr-2 h-4 w-4" />
+                End Game
+            </Button>
+        </div>
+      )}
     </div>
   );
 }
-
-    
