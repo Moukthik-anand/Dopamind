@@ -37,7 +37,7 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="system"
           enableSystem
-          disableTransitionOnChange
+          disableTransitionOnChange={false}
         >
           <div className="animated-gradient absolute inset-0 z-[-1]" />
           <FirebaseClientProvider>

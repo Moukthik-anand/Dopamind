@@ -1,29 +1,19 @@
 'use client';
 
-import { motion, useScroll, useTransform } from 'framer-motion';
-import { useRef, useState } from 'react';
+import { AboutModal } from '@/components/AboutModal';
 import { Button } from '@/components/ui/button';
 import { Info } from 'lucide-react';
-import { AboutModal } from '@/components/AboutModal';
+import { useState } from 'react';
 
 export function Footer() {
-  const ref = useRef(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start end", "end end"]
-  });
   const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
-
-  const opacity = useTransform(scrollYProgress, [0.5, 1], [0, 1]);
 
   return (
     <>
-      <motion.footer
-        ref={ref}
-        style={{ opacity }}
+      <footer
         className="w-full py-5"
       >
-        <div className="container flex flex-col items-center justify-center gap-2 text-center text-sm text-gray-600 dark:text-gray-400">
+        <div className="container flex flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground/80">
             <span className="text-xs font-medium">
               © 2025 Built by Moukthik Anand
             </span>
@@ -37,7 +27,7 @@ export function Footer() {
                 <span className="sr-only">About Dopamind</span>
             </Button>
         </div>
-      </motion.footer>
+      </footer>
       <AboutModal open={isAboutModalOpen} onOpenChange={setIsAboutModalOpen} />
     </>
   );
