@@ -25,7 +25,7 @@ import type { UserProfile } from '@/lib/types';
 
 // --- Constants ---
 type GameState = 'ready' | 'playing' | 'over';
-const POPS_TO_WIN = 50;
+const POPS_TO_WIN = 70;
 
 interface Bubble {
   id: number;
@@ -51,6 +51,7 @@ export default function BubblePopperPage() {
   const [gameState, setGameState] = useState<GameState>('ready');
   const [popCount, setPopCount] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [xpEarned, setXpEarned] = useState(0);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>();
@@ -64,43 +65,14 @@ export default function BubblePopperPage() {
   const gameStartTimeRef = useRef<number | null>(null);
 
   // --- Firebase State ---
-  const auth = useAuth();
+  const { user } = useUser();
   const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   const userProfileRef = useMemoFirebase(() => {
       if (!user || !firestore) return null;
       return doc(firestore, `users/${user.uid}`);
   }, [user, firestore]);
-
-  // --- Fetch/Create User Profile ---
-  useEffect(() => {
-    if (userProfileRef) {
-      getDoc(userProfileRef).then(async (docSnap) => {
-        if (docSnap.exists()) {
-          setUserProfile(docSnap.data() as UserProfile);
-        } else {
-          if (user) {
-            const newProfile: UserProfile = {
-              id: user.uid,
-              name: user.displayName || 'Anonymous',
-              email: user.email || '',
-              score: 0,
-              xp: 0,
-              createdAt: new Date(),
-            };
-            await setDoc(userProfileRef, newProfile);
-            setUserProfile(newProfile);
-          }
-        }
-      });
-    } else {
-      setUserProfile(null);
-    }
-  }, [user, userProfileRef]);
-
-
+  
   // --- Sound Initialization & Effects ---
   const playPopSound = useCallback(() => {
     if (!audioContextRef.current) {
@@ -119,7 +91,7 @@ export default function BubblePopperPage() {
     const o = p.createOscillator();
     const g = p.createGain();
     o.connect(g);
-g.connect(p.destination);
+    g.connect(p.destination);
     o.type = 'triangle';
     o.frequency.setValueAtTime(800 + Math.random() * 200, p.currentTime);
     g.gain.setValueAtTime(0.3, p.currentTime);
@@ -212,46 +184,35 @@ g.connect(p.destination);
     }
     gameStartTimeRef.current = null;
   }, []);
-
-  const endGame = useCallback(() => {
-    if (gameState !== 'playing') return; // Prevent multiple calls
-    setGameState('over');
-    stopTimer();
-
-    if(user && userProfileRef) {
-        const finalTime = (performance.now() - (gameStartTimeRef.current ?? performance.now())) / 1000;
-        const scoreGained = Math.max(10, Math.round(100 - finalTime));
-        setElapsedTime(finalTime);
-        setDocumentNonBlocking(userProfileRef, { score: increment(scoreGained) }, { merge: true });
-    }
-  }, [gameState, user, userProfileRef, stopTimer]);
-
-  useEffect(() => {
-    if (gameState !== 'playing') {
-      stopTimer();
-      return;
-    }
-
-    const timerLoop = () => {
+  
+  const timerLoop = useCallback(() => {
       if (!gameStartTimeRef.current) return;
       const elapsed = (performance.now() - gameStartTimeRef.current) / 1000;
       setElapsedTime(elapsed);
       timerRafIdRef.current = requestAnimationFrame(timerLoop);
-    };
-    
-    if (popCount > 0) {
-        if(!timerRafIdRef.current) {
-            timerRafIdRef.current = requestAnimationFrame(timerLoop);
-        }
-    }
+  }, []);
 
-    return () => stopTimer();
-  }, [gameState, popCount, stopTimer]);
+  const endGame = useCallback(() => {
+    if (gameState !== 'playing') return; // Prevent multiple calls
+    stopTimer();
+    setGameState('over');
+
+    const finalTime = (performance.now() - (gameStartTimeRef.current ?? performance.now())) / 1000;
+    const earned = Math.max(10, Math.round(1500 - finalTime * 10));
+
+    setElapsedTime(finalTime);
+    setXpEarned(earned);
+
+    if(user && userProfileRef) {
+        setDocumentNonBlocking(userProfileRef, { score: increment(earned) }, { merge: true });
+    }
+  }, [gameState, user, userProfileRef, stopTimer]);
 
 
   const startGame = useCallback(() => {
     setPopCount(0);
     setElapsedTime(0);
+    setXpEarned(0);
     setGameState('playing');
     bubblesRef.current = [];
     particlesRef.current = [];
@@ -265,14 +226,16 @@ g.connect(p.destination);
     
     setPopCount(0);
     setElapsedTime(0);
+    setXpEarned(0);
     setGameState('ready');
     bubblesRef.current = [];
     particlesRef.current = [];
 
+    // Restart the rendering loop
     animationFrameRef.current = requestAnimationFrame(gameLoop);
   }, [gameLoop, stopTimer]);
-
-  // --- Canvas Setup & Resize ---
+  
+    // --- Canvas Setup & Resize ---
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -297,7 +260,7 @@ g.connect(p.destination);
   }, [gameLoop, stopTimer]);
 
   // --- Input Handling ---
-  const handlePop = useCallback(
+  const handleCanvasInteraction = useCallback(
     (
       e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
     ) => {
@@ -322,6 +285,7 @@ g.connect(p.destination);
           
           if (popCount === 0) {
             gameStartTimeRef.current = performance.now();
+            timerRafIdRef.current = requestAnimationFrame(timerLoop);
           }
 
           const newPopCount = popCount + 1;
@@ -336,12 +300,10 @@ g.connect(p.destination);
         }
       }
     },
-    [gameState, playPopSound, createParticles, popCount, endGame]
+    [gameState, playPopSound, createParticles, popCount, endGame, timerLoop]
   );
-
-  const displayScore = user ? userProfile?.score ?? '...' : 0;
-  const scoreGained = Math.max(10, Math.round(100 - elapsedTime));
-
+  
+  const progress = Math.min(100, Math.round((popCount / POPS_TO_WIN) * 100));
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -349,48 +311,48 @@ g.connect(p.destination);
       <Card className="w-full max-w-2xl text-center overflow-hidden shadow-lg border border-black/5 dark:border-white/5">
         <CardContent className="p-0">
           <div className="relative w-full h-[60vh] max-h-[700px] overflow-hidden">
-            <div className="absolute top-2 left-0 z-20 w-full px-4 flex justify-between items-center text-white">
-                <div
-                  className="font-bold text-lg sm:text-xl p-2 rounded-lg bg-black/20"
-                  style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}
-                >
-                  Pops:{' '}
-                   <motion.span
-                    key={popCount}
-                    initial={{ scale: 1.2, opacity: 0.5 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ duration: 0.2, ease: 'easeOut' }}
-                    className="inline-block w-16 text-left"
-                  >
-                    {popCount}/{POPS_TO_WIN}
-                  </motion.span>
+             <div className="absolute top-2 left-0 z-20 w-full px-4 flex justify-between items-center text-white">
+                <div className="font-bold text-lg sm:text-xl p-2 rounded-lg bg-black/20" style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}>
+                    Pops: {popCount}/{POPS_TO_WIN}
                 </div>
-                <div
-                  className="font-bold text-lg sm:text-xl flex items-center p-2 rounded-lg bg-black/20"
-                  style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}
-                >
+                <div className="font-bold text-lg sm:text-xl flex items-center p-2 rounded-lg bg-black/20" style={{ textShadow: '0 0 6px rgba(0,0,0,0.4)' }}>
                     <TimerIcon className="mr-2 h-5 w-5"/>
                     <span>{elapsedTime.toFixed(2)}s</span>
                 </div>
             </div>
+            
+            <div className="absolute top-14 left-1/2 -translate-x-1/2 w-4/5 sm:w-1/2 z-20">
+                <div className="w-full h-2 rounded-full bg-white/20 overflow-hidden border border-white/10">
+                    <motion.div
+                    className="h-full bg-purple-400"
+                    style={{ width: `${progress}%` }}
+                    transition={{ duration: 0.15, ease: "linear" }}
+                    />
+                </div>
+            </div>
+
             <canvas
               ref={canvasRef}
               className="w-full h-full cursor-pointer bg-gradient-to-br from-blue-300 via-purple-300 to-pink-300"
-              onMouseDown={handlePop}
-              onTouchStart={handlePop}
+              onMouseDown={handleCanvasInteraction}
+              onTouchStart={handleCanvasInteraction}
             />
+            
+            <AnimatePresence>
             {gameState !== 'playing' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-10">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm z-10 p-4"
+              >
                 {gameState === 'ready' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
+                  <motion.div initial={{ y: 20 }} animate={{ y: 0 }}>
                     <h2 className="text-3xl font-bold text-white mb-2">
-                      Fastest 50 Pops!
+                      Fastest {POPS_TO_WIN} Pops!
                     </h2>
                     <p className="text-white mb-4">
-                      Pop 50 bubbles as quickly as you can.
+                      Pop {POPS_TO_WIN} bubbles as quickly as you can.
                     </p>
                     <Button onClick={startGame} size="lg">
                       Start Challenge
@@ -398,43 +360,38 @@ g.connect(p.destination);
                   </motion.div>
                 )}
                 {gameState === 'over' && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-center px-4"
-                  >
+                  <motion.div initial={{ y: 20 }} animate={{ y: 0 }} className="text-center">
                     <h2 className="text-3xl font-bold text-white mb-2">
                       Challenge Complete!
                     </h2>
                     <p className="text-xl text-white mb-2">
-                      You popped 50 bubbles in <strong>{elapsedTime.toFixed(2)}</strong> seconds!
+                      You popped {POPS_TO_WIN} bubbles in <strong>{elapsedTime.toFixed(2)}</strong> seconds!
                     </p>
-                    <p className="text-lg text-white mb-4">You gained {scoreGained} score. Your total score is now {displayScore}.</p>
+                    <p className="text-lg font-medium text-yellow-300 mb-4">You earned {xpEarned} XP!</p>
                     <Button onClick={resetGame} size="lg">
                       <RefreshCw className="mr-2 h-4 w-4" />
                       Play Again
                     </Button>
                   </motion.div>
                 )}
-              </div>
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
         </CardContent>
       </Card>
-      <div className="w-full flex justify-center mt-4">
+       <div className="w-full flex justify-center mt-4">
         {gameState === 'playing' && (
             <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
             >
             <Button
                 onClick={endGame}
-                className="rounded-xl py-2 px-5 font-medium text-white bg-accent/80 hover:bg-accent"
-                style={{ backgroundColor: '#b18fe0' }}
+                variant="destructive"
+                className="rounded-xl"
             >
-                <StopCircle className="mr-2 h-5 w-5" /> End Game
+                <StopCircle className="mr-2 h-5 w-5" /> End Challenge
             </Button>
             </motion.div>
         )}
@@ -442,3 +399,5 @@ g.connect(p.destination);
     </div>
   );
 }
+
+    
